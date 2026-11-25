@@ -14,11 +14,12 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>com.libertymusicsoftware.infinitympctest</string>
 <key>CFBundleName</key><string>Liberty Infinity MPC Test</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.9.6</string>
+<key>CFBundleShortVersionString</key><string>0.9.7</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
 codesign --force --sign - "$APP"
 codesign --verify --strict "$APP"
 "$APP/Contents/MacOS/Infinity" --qc-backup
+"$APP/Contents/MacOS/Infinity" --qc-library
 ditto -c -k --sequesterRsrc --keepParent "$APP" dist/Liberty-Infinity-Black-Gold-Mac-Test-arm64.zip

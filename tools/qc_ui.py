@@ -7,7 +7,7 @@ def verify(rects,w,h):
         assert x>=0 and y>=0 and a>0 and b>0 and x+a<=w and y+b<=h,(name,x,y,a,b,w,h)
     for (n,x,y,w,h),(m,X,Y,W,H) in itertools.combinations(rects,2):
         assert min(x+w,X+W)<=max(x,X) or min(y+h,Y+H)<=max(y,Y),(n,m)
-for path in [root/"macos/Main.mm",root/"macos/MultisampleStudio.h",root/"macos/NativeBankExport.h",root/"plugins/Infinity/layout.json"]:
+for path in [root/"macos/Main.mm",root/"macos/MultisampleStudio.h",root/"macos/NativeBankExport.h",root/"macos/PresetLibrary.h",root/"plugins/Infinity/layout.json"]:
     s=path.read_text(encoding="utf-8",errors="strict")
     assert not any(c in s for c in ("\ufffd","\u00c3\u00a9","\u00c3\u00a8","\u00e2\u20ac")),path
     assert not any(unicodedata.category(c)=="Cc" and c not in "\n\t\r" for c in s),path

@@ -14,7 +14,7 @@ static AVAudioEngine *audio;
 static NSArray *controls;
 static NSImage *panel;
 static NSDictionary<NSString*,NSImage*> *faces;
-static int current=0,category=0,page=0,style=0,visible[100],visibleCount=0;
+static int current=0,category=0,page=0,style=0,visible[500],visibleCount=0;
 static constexpr int pageSize=6;
 static bool favoritesOnly=false;
 static NSMutableSet<NSString*> *favorites;
@@ -35,19 +35,24 @@ static bool matchesStyle(int i){
         default:return true;
     }
 }
+static void persist(){NSUserDefaults *d=NSUserDefaults.standardUserDefaults;[d setObject:favorites.allObjects forKey:@"InfinityFavoritesV1"];[d setObject:userPresets forKey:@"InfinityUserPresetsV1"];}
+#include "PresetBackup.h"
+#include "PresetLibrary.h"
 static void rebuild(){
     visibleCount=0;
-    for(int i=0;i<factoryCount;++i){
-        if(category&&std::string(factory[i].category)!=categories[category])continue;
-        if(!matchesStyle(i)||(favoritesOnly&&![favorites containsObject:patchName(i)]))continue;
-        NSString *hay=[NSString stringWithFormat:@"%@ %s",patchName(i),factory[i].category];
+    NSArray *names=activeLibrary()?libraryNames():nil;
+    int count=names?int(names.count):factoryCount;
+    for(int i=0;i<count;++i){
+        int f=names?factoryIndex(activeLibrary()[@"presets"][names[i]]):i;if(f<0)continue;
+        if(category&&std::string(factory[f].category)!=categories[category])continue;
+        if(!matchesStyle(f)||(!names&&favoritesOnly&&![favorites containsObject:patchName(f)]))continue;
+        NSString *hay=[NSString stringWithFormat:@"%@ %s",names?names[i]:patchName(f),factory[f].category];
         if(query.length&&[hay rangeOfString:query options:NSCaseInsensitiveSearch|NSDiacriticInsensitiveSearch].location==NSNotFound)continue;
         visible[visibleCount++]=i;
     }
     page=0;
 }
-static void persist(){NSUserDefaults *d=NSUserDefaults.standardUserDefaults;[d setObject:favorites.allObjects forKey:@"InfinityFavoritesV1"];[d setObject:userPresets forKey:@"InfinityUserPresetsV1"];}
-#include "PresetBackup.h"
+
 static MIDIClientRef midiClient=0;static MIDIPortRef midiPort=0;
 static std::atomic<int> external[128],externalPedal{0},externalBend{8192};
 static int lastPedal=0,lastBend=8192;
@@ -79,6 +84,13 @@ static void browserButton(NSString *title, NSRect r, bool active=false){
 #include "MultisampleStudio.h"
 static NSRect bounds(NSDictionary *c){return NSMakeRect([c[@"x"] doubleValue],[c[@"y"] doubleValue],[c[@"w"] doubleValue],[c[@"h"] doubleValue]);}
 static void choose(int p){if(p<0||p>=factoryCount)return;auditionCommand.store(-1);current=p;userName=nil;synth->setProgram(p);}
+static void chooseRow(int i){
+    if(!activeLibrary()){choose(i);selectedLibraryRow=-1;return;}
+    NSDictionary *record=libraryPreset(i);int f=factoryIndex(record);if(f<0)return;
+    choose(f);NSDictionary *values=record[@"values"];
+    for(int k=1;k<synth->numParams();++k)synth->setNormalised(k,[values[[NSString stringWithUTF8String:synth->param(k).id.c_str()]] floatValue]);
+    selectedLibraryRow=i;userName=libraryPresetName(i);
+}
 static const char *keyMap="awsedftgyhujkolp";
 @interface Panel:NSView<NSSearchFieldDelegate> {int drag; CGFloat startY; float startValue; int mouseNote; NSSearchField *search;}
 @end
@@ -111,18 +123,20 @@ static const char *keyMap="awsedftgyhujkolp";
         text(c[@"name"],NSMakeRect(r.origin.x,r.origin.y+[face[@"labelY"] doubleValue],r.size.width,14),12,ink(),true);
         if(![kind isEqualToString:@"selector"])text(value,NSMakeRect(r.origin.x,r.origin.y+[face[@"valueY"] doubleValue],r.size.width,11),10,ink(),true);
     }
+    browserButton([NSString stringWithFormat:@"%@ ▾",collectionName()],NSMakeRect(540,54,260,26),true);
     browserButton([NSString stringWithUTF8String:styles[style]],NSMakeRect(307,100,185,22),style!=0);
     for(int i=0;i<13;++i){
         NSRect r=NSMakeRect(307,128+i*13,185,13);
         if(i==category){[selection()setFill];NSRectFill(r);}
         text([NSString stringWithUTF8String:categories[i]],NSInsetRect(r,3,0),11,ink());
     }
-    browserButton(favoritesOnly?@"Favoris actifs":@"Tous / Favoris",NSMakeRect(307,302,185,23),favoritesOnly);
+    browserButton(activeLibrary()?@"Collection externe":favoritesOnly?@"Favoris actifs":@"Tous / Favoris",NSMakeRect(307,302,185,23),!activeLibrary()&&favoritesOnly);
     for(int row=0;row<pageSize;++row){int at=page*pageSize+row;if(at>=visibleCount)break;int i=visible[at];
         NSRect r=NSMakeRect(500,128+row*22,461,21);
-        if(i==current){[selection()setFill];NSRectFill(r);}
-        text(patchName(i),NSMakeRect(508,r.origin.y,403,21),15,ink());
-        text([favorites containsObject:patchName(i)]?@"*":@"+",NSMakeRect(928,r.origin.y,28,21),15,gold(),true);
+        if(i==(activeLibrary()?selectedLibraryRow:current)){[selection()setFill];NSRectFill(r);}
+        NSString *name=activeLibrary()?libraryPresetName(i):patchName(i);
+        text(name,NSMakeRect(508,r.origin.y,403,21),15,ink());
+        if(!activeLibrary())text([favorites containsObject:patchName(i)]?@"*":@"+",NSMakeRect(928,r.origin.y,28,21),15,gold(),true);
     }
     if(!visibleCount)text(@"Aucun résultat",NSMakeRect(505,159,450,25),15,ink(),true);
     browserButton(@"< Son",NSMakeRect(500,264,68,20));
@@ -133,7 +147,7 @@ static const char *keyMap="awsedftgyhujkolp";
     browserButton(auditionPlaying.load()?@"Stop":@"Écouter",NSMakeRect(500,288,108,20),auditionPlaying.load()!=0);
     browserButton(@"Enregistrer",NSMakeRect(613,288,112,20));
     browserButton(@"Mes presets",NSMakeRect(730,288,112,20));
-    browserButton([favorites containsObject:patchName(current)]?@"Favori : oui":@"Favori : non",NSMakeRect(847,288,114,20),[favorites containsObject:patchName(current)]);
+    browserButton(activeLibrary()?@"Factory 1":([favorites containsObject:patchName(current)]?@"Favori : oui":@"Favori : non"),NSMakeRect(847,288,114,20),!activeLibrary()&&[favorites containsObject:patchName(current)]);
     text(synth->loadedPatch()!=current?@"Chargement du son...":(userName?:patchName(current)),NSMakeRect(500,312,461,19),14,ink(),true);
     [(midiFlash.load()>0?gold():[NSColor colorWithWhite:.16 alpha:1]) setFill];
     [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(1047,414,8,8)]fill];
@@ -159,12 +173,20 @@ static const char *keyMap="awsedftgyhujkolp";
 -(void)mouseDown:(NSEvent*)e{
     NSPoint p=[self convertPoint:e.locationInWindow fromView:nil];[self.window makeFirstResponder:self];
     if(p.y>=653&&p.y<715&&p.x>=16&&p.x<1264){mouseNote=60+int((p.x-16)/78);notes[mouseNote].store(100);return;}
+    if(NSPointInRect(p,NSMakeRect(540,54,260,26))){
+        NSMenu *menu=[[NSMenu alloc]initWithTitle:@"Collections"];
+        NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:@"Factory 1 (100 presets)" action:@selector(selectCollection:) keyEquivalent:@""];item.target=self;item.tag=-1;item.state=collection==-1?NSControlStateValueOn:NSControlStateValueOff;[menu addItem:item];
+        for(NSInteger j=0;j<(NSInteger)libraries.count;++j){
+            NSDictionary *lib=libraries[j];NSString *title=[NSString stringWithFormat:@"%@ — %@ (%lu)",lib[@"name"],lib[@"vendor"],(unsigned long)[lib[@"presets"] count]];
+            NSMenuItem *it=[[NSMenuItem alloc]initWithTitle:title action:@selector(selectCollection:) keyEquivalent:@""];it.target=self;it.tag=j;it.state=collection==j?NSControlStateValueOn:NSControlStateValueOff;[menu addItem:it];
+        }[NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
+    }
     if(p.x>=307&&p.x<492&&p.y>=100&&p.y<122){
         NSMenu *menu=[[NSMenu alloc]initWithTitle:@"Style"];for(int j=0;j<6;++j){NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:[NSString stringWithUTF8String:styles[j]] action:@selector(selectStyle:) keyEquivalent:@""];item.target=self;item.tag=j;item.state=j==style?NSControlStateValueOn:NSControlStateValueOff;[menu addItem:item];}[NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
     }
     if(p.x>=307&&p.x<492&&p.y>=128&&p.y<297){category=int((p.y-128)/13);rebuild();return;}
-    if(NSPointInRect(p,NSMakeRect(307,302,185,23))){favoritesOnly=!favoritesOnly;rebuild();return;}
-    if(p.x>=500&&p.x<961&&p.y>=128&&p.y<260){int at=page*pageSize+int((p.y-128)/22);if(at<visibleCount){if(p.x>=920)[self toggleFavorite:visible[at]];else choose(visible[at]);}return;}
+    if(NSPointInRect(p,NSMakeRect(307,302,185,23))){if(!activeLibrary()){favoritesOnly=!favoritesOnly;rebuild();}return;}
+    if(p.x>=500&&p.x<961&&p.y>=128&&p.y<260){int at=page*pageSize+int((p.y-128)/22);if(at<visibleCount){if(p.x>=920&&!activeLibrary())[self toggleFavorite:visible[at]];else chooseRow(visible[at]);}return;}
     if(p.y>=264&&p.y<284&&p.x>=500&&p.x<961){
         if(p.x<568)[self stepPreset:-1];else if(p.x>=574&&p.x<642)page=std::max(0,page-1);
         else if(p.x>=817&&p.x<885)page=std::min(std::max(0,(visibleCount-1)/pageSize),page+1);
@@ -174,7 +196,7 @@ static const char *keyMap="awsedftgyhujkolp";
         if(p.x<608&&synth->loadedPatch()==current)auditionCommand.store(auditionPlaying.load()?-1:1);
         else if(p.x>=613&&p.x<725)[self saveUserPreset];
         else if(p.x>=730&&p.x<842)[self showUserPresets:e];
-        else if(p.x>=847)[self toggleFavorite:current];return;
+        else if(p.x>=847){if(activeLibrary()){collection=-1;selectedLibraryRow=-1;category=style=0;query=@"";search.stringValue=@"";favoritesOnly=false;rebuild();chooseRow(current);}else [self toggleFavorite:current];}return;
     }
     for(NSDictionary *c in controls){int i=[c[@"i"] intValue];if(!i||!NSPointInRect(p,bounds(c)))continue;
         if(i==8||i==15||i==18||i==23||i==31){synth->set(i,!synth->getBool(i));return;}
@@ -192,7 +214,8 @@ static const char *keyMap="awsedftgyhujkolp";
 }
 -(void)controlTextDidChange:(NSNotification*)n{if(n.object==search){query=[search.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];rebuild();[self setNeedsDisplay:YES];}}
 -(void)selectStyle:(NSMenuItem*)item{style=int(item.tag);rebuild();[self setNeedsDisplay:YES];}
--(void)stepPreset:(int)delta{if(!visibleCount)return;int at=-1;for(int j=0;j<visibleCount;++j)if(visible[j]==current){at=j;break;}at=at<0?(delta>0?0:visibleCount-1):(at+delta+visibleCount)%visibleCount;choose(visible[at]);page=at/pageSize;}
+-(void)selectCollection:(NSMenuItem*)item{collection=item.tag;selectedLibraryRow=-1;category=style=0;query=@"";search.stringValue=@"";favoritesOnly=false;rebuild();if(visibleCount)chooseRow(visible[0]);[self setNeedsDisplay:YES];}
+-(void)stepPreset:(int)delta{if(!visibleCount)return;int at=-1;for(int j=0;j<visibleCount;++j)if(visible[j]==(activeLibrary()?selectedLibraryRow:current)){at=j;break;}at=at<0?(delta>0?0:visibleCount-1):(at+delta+visibleCount)%visibleCount;chooseRow(visible[at]);page=at/pageSize;}
 -(void)toggleFavorite:(int)i{NSString *name=patchName(i);if([favorites containsObject:name])[favorites removeObject:name];else [favorites addObject:name];persist();int old=page;rebuild();page=std::min(old,std::max(0,(visibleCount-1)/pageSize));}
 -(void)saveUserPreset{
     NSAlert *a=[NSAlert new];a.messageText=@"Enregistrer un preset personnel";[a addButtonWithTitle:@"Enregistrer"];[a addButtonWithTitle:@"Annuler"];
@@ -214,7 +237,7 @@ static const char *keyMap="awsedftgyhujkolp";
     NSDictionary *values=record[@"values"];if(![values isKindOfClass:NSDictionary.class])return;
     int p=-1;for(int i=0;i<factoryCount;++i)if([record[@"factory"] isEqual:patchName(i)]){p=i;break;}if(p<0)return;
     for(int i=1;i<synth->numParams();++i){id v=values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]];if(![v isKindOfClass:NSNumber.class]||!std::isfinite([v doubleValue])||[v doubleValue]<0||[v doubleValue]>1)return;}
-    choose(p);for(int i=1;i<synth->numParams();++i)synth->setNormalised(i,[values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]] floatValue]);userName=name;
+    selectedLibraryRow=-1;choose(p);for(int i=1;i<synth->numParams();++i)synth->setNormalised(i,[values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]] floatValue]);userName=name;
 }
 -(void)selectMode:(NSMenuItem*)item{synth->set(int(item.tag/100),int(item.tag%100));[self setNeedsDisplay:YES];}
 -(void)mouseDragged:(NSEvent*)e{if(drag>=0){NSPoint p=[self convertPoint:e.locationInWindow fromView:nil];synth->setNormalised(drag,std::clamp(startValue+float(startY-p.y)/150.f,0.f,1.f));}}
@@ -244,7 +267,7 @@ static const char *keyMap="awsedftgyhujkolp";
     faces=[loaded copy];
     if(!controls||!panel||faces.count!=7){NSLog(@"Missing resources");[NSApp terminate:nil];return;}
     synth=std::make_unique<Infinity>();synth->setProgram(0);
-    NSUserDefaults *d=NSUserDefaults.standardUserDefaults;favorites=[NSMutableSet setWithArray:[d arrayForKey:@"InfinityFavoritesV1"]?:@[]];userPresets=[[d dictionaryForKey:@"InfinityUserPresetsV1"] mutableCopy]?:[NSMutableDictionary new];rebuild();
+    NSUserDefaults *d=NSUserDefaults.standardUserDefaults;favorites=[NSMutableSet setWithArray:[d arrayForKey:@"InfinityFavoritesV1"]?:@[]];userPresets=[[d dictionaryForKey:@"InfinityUserPresetsV1"] mutableCopy]?:[NSMutableDictionary new];loadLibraries();rebuild();
     if(synth->loadedZones()!=factoryCount*5*4){NSAlert *a=[NSAlert new];a.messageText=@"Banque sonore incomplète";[a runModal];[NSApp terminate:nil];return;}
     if(MIDIClientCreate(CFSTR("Liberty Infinity"),nullptr,nullptr,&midiClient)==noErr && MIDIInputPortCreate(midiClient,CFSTR("Input"),midiRead,nullptr,&midiPort)==noErr){for(ItemCount i=0;i<MIDIGetNumberOfSources();++i)MIDIPortConnectSource(midiPort,MIDIGetSource(i),nullptr);}
     audio=[AVAudioEngine new];
@@ -284,10 +307,44 @@ static const char *keyMap="awsedftgyhujkolp";
     NSMenuItem *backupItem=[[NSMenuItem alloc]initWithTitle:@"Sauvegarde" action:nil keyEquivalent:@""];[bar addItem:backupItem];
     NSMenu *backupMenu=[[NSMenu alloc]initWithTitle:@"Sauvegarde"];backupItem.submenu=backupMenu;
     NSMenuItem *save=[[NSMenuItem alloc]initWithTitle:@"Exporter favoris et presets…" action:@selector(exportBackup:) keyEquivalent:@""];save.target=self;[backupMenu addItem:save];
-    NSMenuItem *restore=[[NSMenuItem alloc]initWithTitle:@"Restaurer favoris et presets…" action:@selector(restoreBackup:) keyEquivalent:@""];restore.target=self;[backupMenu addItem:restore];NSApp.mainMenu=bar;
+    NSMenuItem *restore=[[NSMenuItem alloc]initWithTitle:@"Restaurer favoris et presets…" action:@selector(restoreBackup:) keyEquivalent:@""];restore.target=self;[backupMenu addItem:restore];
+    NSMenuItem *libItem=[[NSMenuItem alloc]initWithTitle:@"Collections" action:nil keyEquivalent:@""];[bar addItem:libItem];
+    NSMenu *libMenu=[[NSMenu alloc]initWithTitle:@"Collections"];libItem.submenu=libMenu;
+    NSMenuItem *imp=[[NSMenuItem alloc]initWithTitle:@"Installer une Library…" action:@selector(importLibrary:) keyEquivalent:@""];imp.target=self;[libMenu addItem:imp];
+    NSMenuItem *exp=[[NSMenuItem alloc]initWithTitle:@"Créer une Library de presets…" action:@selector(exportLibrary:) keyEquivalent:@""];exp.target=self;[libMenu addItem:exp];
+    NSApp.mainMenu=bar;
     [NSApp activateIgnoringOtherApps:YES];
 }
 -(void)backupMessage:(NSString*)message{NSAlert *a=[NSAlert new];a.messageText=message;[a runModal];}
+-(void)importLibrary:(id)sender{
+    (void)sender;NSOpenPanel *p=[NSOpenPanel openPanel];p.allowedFileTypes=@[@"infinitylibrary"];if([p runModal]!=NSModalResponseOK)return;
+    NSDictionary *doc=readLibrary(p.URL);if(!doc){[self backupMessage:@"Library invalide ou incompatible avec Factory 1."];return;}
+    if(libraries.count>=maxLibraries){[self backupMessage:@"Limite de 64 Libraries installées atteinte."];return;}
+    NSString *identifier=libraryID(doc);for(NSDictionary *lib in libraries)if([libraryID(lib) isEqual:identifier]){[self backupMessage:@"Cette Library est déjà installée."];return;}
+    NSString *dir=libraryDirectory();if(!dir){[self backupMessage:@"Dossier de collections indisponible."];return;}
+    NSError *err=nil;NSFileManager *fm=NSFileManager.defaultManager;
+    if(![fm createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:&err]){[self backupMessage:err.localizedDescription];return;}
+    NSURL *dest=[NSURL fileURLWithPath:[dir stringByAppendingPathComponent:[identifier stringByAppendingPathExtension:@"infinitylibrary"]]];
+    if([fm fileExistsAtPath:dest.path]){[self backupMessage:@"Ce fichier de Library existe déjà."];return;}
+    NSData *data=[NSJSONSerialization dataWithJSONObject:doc options:NSJSONWritingPrettyPrinted error:&err];
+    if(!data||![data writeToURL:dest options:NSDataWritingWithoutOverwriting error:&err]){[self backupMessage:err.localizedDescription?:@"Installation impossible."];return;}
+    [libraries addObject:doc];[self.window.contentView setNeedsDisplay:YES];[self backupMessage:@"Library installée. Choisissez-la dans le sélecteur Factory 1."];
+}
+-(void)exportLibrary:(id)sender{
+    (void)sender;if(!userPresets.count||userPresets.count>maxLibraryPresets){[self backupMessage:@"Enregistrez entre 1 et 500 presets personnels avant de créer une Library."];return;}
+    NSAlert *a=[NSAlert new];a.messageText=@"Créer une Library de presets";
+    a.informativeText=@"Tous les presets personnels seront inclus. La Library utilise les sons de Factory 1, sans nouveaux WAV.";
+    NSTextField *field=[[NSTextField alloc]initWithFrame:NSMakeRect(0,0,300,24)];field.placeholderString=@"Nom de la collection";a.accessoryView=field;a.window.initialFirstResponder=field;
+    [a addButtonWithTitle:@"Créer"];[a addButtonWithTitle:@"Annuler"];if([a runModal]!=NSAlertFirstButtonReturn)return;
+    NSString *name=[field.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    NSDictionary *doc=libraryDocument(name,@"Liberty Music Software",userPresets);
+    if(!validLibrary(doc)){[self backupMessage:@"Nom ou presets invalides."];return;}
+    NSSavePanel *p=[NSSavePanel savePanel];p.allowedFileTypes=@[@"infinitylibrary"];p.nameFieldStringValue=@"Liberty-Presets.infinitylibrary";
+    if([p runModal]!=NSModalResponseOK)return;
+    NSError *err=nil;NSData *data=[NSJSONSerialization dataWithJSONObject:doc options:NSJSONWritingPrettyPrinted error:&err];
+    if(data&&data.length<=maxLibraryBytes&&[data writeToURL:p.URL options:NSDataWritingAtomic error:&err])[self backupMessage:@"Library créée. Le fichier peut être distribué séparément."];
+    else [self backupMessage:err.localizedDescription?:@"Export impossible."];
+}
 -(void)exportBackup:(id)sender{
     (void)sender;NSSavePanel *p=[NSSavePanel savePanel];p.nameFieldStringValue=@"Infinity-Presets.json";p.allowedFileTypes=@[@"json"];
     if([p runModal]!=NSModalResponseOK)return;
@@ -312,4 +369,4 @@ static const char *keyMap="awsedftgyhujkolp";
 -(BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)a{(void)a;return YES;}
 -(void)applicationWillTerminate:(NSNotification*)n{(void)n;[self.timer invalidate];[audio stop];if(midiPort)MIDIPortDispose(midiPort);if(midiClient)MIDIClientDispose(midiClient);}
 @end
-int main(int argc,char** argv){@autoreleasepool{if(argc==2&&std::string(argv[1])=="--qc-backup")return backupSelfTest();NSApplication *app=NSApplication.sharedApplication;[app setActivationPolicy:NSApplicationActivationPolicyRegular];App *delegate=[App new];app.delegate=delegate;[app run];}return 0;}
+int main(int argc,char** argv){@autoreleasepool{if(argc==2&&std::string(argv[1])=="--qc-backup")return backupSelfTest();if(argc==2&&std::string(argv[1])=="--qc-library")return librarySelfTest();NSApplication *app=NSApplication.sharedApplication;[app setActivationPolicy:NSApplicationActivationPolicyRegular];App *delegate=[App new];app.delegate=delegate;[app run];}return 0;}
