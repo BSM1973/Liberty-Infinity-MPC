@@ -47,6 +47,7 @@ static void rebuild(){
     page=0;
 }
 static void persist(){NSUserDefaults *d=NSUserDefaults.standardUserDefaults;[d setObject:favorites.allObjects forKey:@"InfinityFavoritesV1"];[d setObject:userPresets forKey:@"InfinityUserPresetsV1"];}
+#include "PresetBackup.h"
 static MIDIClientRef midiClient=0;static MIDIPortRef midiPort=0;
 static std::atomic<int> external[128],externalPedal{0},externalBend{8192};
 static int lastPedal=0,lastBend=8192;
@@ -279,12 +280,36 @@ static const char *keyMap="awsedftgyhujkolp";
     self.timer=[NSTimer scheduledTimerWithTimeInterval:1./30 repeats:YES block:^(NSTimer *t){(void)t;[v setNeedsDisplay:YES];}];
     NSMenu *bar=[NSMenu new];NSMenuItem *appItem=[NSMenuItem new];[bar addItem:appItem];NSMenu *appMenu=[NSMenu new];[appItem setSubmenu:appMenu];[appMenu addItemWithTitle:@"Quitter Liberty Infinity" action:@selector(terminate:) keyEquivalent:@"q"];
     NSMenuItem *studioItem=[[NSMenuItem alloc]initWithTitle:@"Multisample" action:nil keyEquivalent:@""];[bar addItem:studioItem];NSMenu *studioMenu=[[NSMenu alloc]initWithTitle:@"Multisample"];studioItem.submenu=studioMenu;
-    NSMenuItem *open=[[NSMenuItem alloc]initWithTitle:@"Ouvrir Multisample Studio" action:@selector(openStudio:) keyEquivalent:@"m"];open.target=self;[studioMenu addItem:open];NSApp.mainMenu=bar;
+    NSMenuItem *open=[[NSMenuItem alloc]initWithTitle:@"Ouvrir Multisample Studio" action:@selector(openStudio:) keyEquivalent:@"m"];open.target=self;[studioMenu addItem:open];
+    NSMenuItem *backupItem=[[NSMenuItem alloc]initWithTitle:@"Sauvegarde" action:nil keyEquivalent:@""];[bar addItem:backupItem];
+    NSMenu *backupMenu=[[NSMenu alloc]initWithTitle:@"Sauvegarde"];backupItem.submenu=backupMenu;
+    NSMenuItem *save=[[NSMenuItem alloc]initWithTitle:@"Exporter favoris et presets…" action:@selector(exportBackup:) keyEquivalent:@""];save.target=self;[backupMenu addItem:save];
+    NSMenuItem *restore=[[NSMenuItem alloc]initWithTitle:@"Restaurer favoris et presets…" action:@selector(restoreBackup:) keyEquivalent:@""];restore.target=self;[backupMenu addItem:restore];NSApp.mainMenu=bar;
     [NSApp activateIgnoringOtherApps:YES];
+}
+-(void)backupMessage:(NSString*)message{NSAlert *a=[NSAlert new];a.messageText=message;[a runModal];}
+-(void)exportBackup:(id)sender{
+    (void)sender;NSSavePanel *p=[NSSavePanel savePanel];p.nameFieldStringValue=@"Infinity-Presets.json";p.allowedFileTypes=@[@"json"];
+    if([p runModal]!=NSModalResponseOK)return;
+    NSError *err=nil;NSData *data=[NSJSONSerialization dataWithJSONObject:backupDocument() options:NSJSONWritingPrettyPrinted error:&err];
+    if(data&&[data writeToURL:p.URL options:NSDataWritingAtomic error:&err])[self backupMessage:@"Sauvegarde enregistrée."];
+    else [self backupMessage:err.localizedDescription?:@"Sauvegarde impossible."];
+}
+-(void)restoreBackup:(id)sender{
+    (void)sender;NSOpenPanel *p=[NSOpenPanel openPanel];p.allowedFileTypes=@[@"json"];if([p runModal]!=NSModalResponseOK)return;
+    NSNumber *size=nil;[p.URL getResourceValue:&size forKey:NSURLFileSizeKey error:nil];
+    if(!size||size.unsignedLongLongValue>4*1024*1024){[self backupMessage:@"Fichier trop volumineux ou illisible."];return;}
+    NSData *data=[NSData dataWithContentsOfURL:p.URL];id doc=data?[NSJSONSerialization JSONObjectWithData:data options:0 error:nil]:nil;
+    if(!validPresetBackup(doc)){[self backupMessage:@"Sauvegarde invalide. Aucun réglage modifié."];return;}
+    NSAlert *a=[NSAlert new];a.messageText=@"Remplacer les favoris et presets personnels ?";
+    a.informativeText=@"Exportez d’abord vos réglages actuels si vous souhaitez les conserver.";
+    [a addButtonWithTitle:@"Remplacer"];[a addButtonWithTitle:@"Annuler"];if([a runModal]!=NSAlertFirstButtonReturn)return;
+    favorites=[NSMutableSet setWithArray:doc[@"favorites"]];userPresets=[doc[@"presets"] mutableCopy];userName=nil;persist();rebuild();[self.window.contentView setNeedsDisplay:YES];
+    [self backupMessage:@"Sauvegarde restaurée."];
 }
 -(void)openStudio:(id)sender{(void)sender;showInfinityStudio();}
 -(void)applicationDidResignActive:(NSNotification*)n{(void)n;for(auto &v:notes)v.store(0);}
 -(BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)a{(void)a;return YES;}
 -(void)applicationWillTerminate:(NSNotification*)n{(void)n;[self.timer invalidate];[audio stop];if(midiPort)MIDIPortDispose(midiPort);if(midiClient)MIDIClientDispose(midiClient);}
 @end
-int main(){@autoreleasepool{NSApplication *app=NSApplication.sharedApplication;[app setActivationPolicy:NSApplicationActivationPolicyRegular];App *delegate=[App new];app.delegate=delegate;[app run];}return 0;}
+int main(int argc,char** argv){@autoreleasepool{if(argc==2&&std::string(argv[1])=="--qc-backup")return backupSelfTest();NSApplication *app=NSApplication.sharedApplication;[app setActivationPolicy:NSApplicationActivationPolicyRegular];App *delegate=[App new];app.delegate=delegate;[app run];}return 0;}
