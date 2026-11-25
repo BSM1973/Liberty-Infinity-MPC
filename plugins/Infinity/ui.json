@@ -1,0 +1,49 @@
+{
+  "kit": "cyan",
+  "style": {
+    "background": "ffe2e7eb",
+    "accent": "ff278bb8",
+    "text": "ff24333e",
+    "muted": "ff657787"
+  },
+  "pages": [
+    {
+      "name": "FACTORY",
+      "controls": [
+        {
+          "param": "Sound",
+          "widget": "knob",
+          "overlay": "menu"
+        },
+        {
+          "param": "Cutoff",
+          "widget": "knob"
+        },
+        {
+          "param": "Pan",
+          "widget": "knob"
+        },
+        {
+          "param": "Volume",
+          "widget": "knob"
+        },
+        {
+          "param": "Attack",
+          "widget": "knob"
+        },
+        {
+          "param": "Decay",
+          "widget": "knob"
+        },
+        {
+          "param": "Sustain",
+          "widget": "knob"
+        },
+        {
+          "param": "Release",
+          "widget": "knob"
+        }
+      ]
+    }
+  ]
+}

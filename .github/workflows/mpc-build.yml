@@ -1,0 +1,32 @@
+name: Liberty Infinity MPC
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Checkout pinned MPC SDK
+        uses: actions/checkout@v4
+        with:
+          repository: inmusic-software/mpc-plugin-builder-sdk
+          ref: e78bad508a305a92443758eb2bc8b428e9e7a687
+          path: sdk
+      - name: Generate PCM test content
+        run: python tools/generate_samples.py
+      - name: Native and ARM32 / ARM64 builds
+        run: python sdk/tools/build.py plugins/Infinity
+      - name: Package
+        run: python sdk/tools/package.py plugins/Infinity
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Liberty-Infinity-MPC-v0.1.0-EXPERIMENTAL
+          path: plugins/Infinity/dist/*.zip
+          if-no-files-found: error

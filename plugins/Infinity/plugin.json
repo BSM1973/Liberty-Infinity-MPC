@@ -1,0 +1,17 @@
+{
+  "name": "Liberty Infinity",
+  "manufacturer": "Liberty Music Software",
+  "version": "0.1.0",
+  "format": "vst2",
+  "kind": "instrument",
+  "uid": "LInf",
+  "numInputs": 0,
+  "numOutputs": 2,
+  "category": "Synth",
+  "file32": "VST/liberty-infinity-arm32.so",
+  "file64": "VST/liberty-infinity-arm64.so",
+  "description": "PCM multisample ROMpler prototype",
+  "author": "Liberty Music Software",
+  "url": "",
+  "license": "Proprietary"
+}
