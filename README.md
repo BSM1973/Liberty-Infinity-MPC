@@ -1,4 +1,4 @@
-# Liberty Infinity — MPC ROMpler v0.4.0
+# Liberty Infinity — MPC ROMpler v0.4.1
 
 Plugin principal MPC ARM32/ARM64, MPC OS 3.10.1+ External Plugin Support bêta. Application macOS ARM64 de test, même DSP et banque. Pas un AU.
 
@@ -11,3 +11,7 @@ CI : 500 zones testées pour signal non nul, fini et borné, et contrôle des so
 ## Black Gold Edition
 
 Façade noire, textes blancs, accents or champagne. Ressources originales partagées Mac et MPC : potentiomètres métallisés 127 images, vrais interrupteurs ON/OFF à LED ambre, sélecteurs de mode distincts, écran sombre. Sur Mac les sélecteurs ouvrent un menu et les vu-mètres sont dorés ; sur MPC les sélecteurs ouvrent le menu au double-tap. Le layout est contrôlé automatiquement pour 39 zones non superposées. Aperçu graphique statique disponible en artefact (pas une capture réelle). Contrôle visuel sur les deux hôtes encore nécessaire. DSP et banque inchangés, hors numéro de version.
+
+## Compact controls
+
+Filter Modifier et Amp Modifier : knobs 36 px au lieu de 50, interrupteurs 36 × 34 au lieu de 52 × 48. Autres modules : knobs 40 px, interrupteurs 40 × 36, sélecteurs 60 × 32 au lieu de 72 × 42. Les zones de contrôle, la taille des textes de paramètres et le navigateur restent inchangés. Les trois rendus (Mac, MPC et aperçu) utilisent les mêmes dimensions du layout. Les images à taille native sont contrôlées par le script. DSP inchangé sauf version.

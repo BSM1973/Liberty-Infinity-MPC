@@ -10,7 +10,7 @@ params=g.load_params(str(P/"build/params.json"))
 by={p.index:p for p in params}
 assert set(by)=={c["i"] for c in L["controls"]}, "Layout and DSP parameter mismatch"
 out=P/"skins";out.mkdir(exist_ok=True)
-for f in ("retro.png","gold_knob.png","power_on.png","power_off.png","selector.png"):shutil.copy2(P/"assets"/f,out/f)
+for f in ("retro.png","gold_knob_36.png","gold_knob_40.png","power_36_on.png","power_36_off.png","power_40_on.png","power_40_off.png","selector_60.png"):shutil.copy2(P/"assets"/f,out/f)
 o=g.obj
 def rect(x,y,w,h):return f"{x} {y} {w} {h}"
 def label(n,t,xy,colour="fff9f9f9",size=16):
@@ -26,18 +26,20 @@ for c in L["controls"]:
                label("categories","100 FACTORY PRESETS / 12 CATEGORIES",rect(10,150,w-20,42),size=20)]
         actions=g.control_actions("menu overlay")
     else:
-        common=[label("name",c["name"],rect(0,51,w,14),size=13),
-                g.entry("value","Label",g.label_data("Value","fff9f9f9",11,"horizontallyCentred verticallyCentred"),rect(0,65,w,11),"No","Show","Always")]
+        face=c["face"];fw,fh,fy=(face[k] for k in ("w","h","y"));fx=(w-fw)//2
+        common=[label("name",c["name"],rect(0,face["labelY"],w,14),size=13),
+                g.entry("value","Label",g.label_data("Value","fff9f9f9",11,"horizontallyCentred verticallyCentred"),rect(0,face["valueY"],w,11),"No","Show","Always")]
         if c["kind"]=="toggle":
-            parts=[g.entry("switch","Button",g.button_data("power_on.png","power_off.png",1,1),rect((w-52)//2,0,52,48),"No","Show","Always")]+common
+            stem=face["asset"]
+            parts=[g.entry("switch","Button",g.button_data(stem+"_on.png",stem+"_off.png",1,1),rect(fx,fy,fw,fh),"No","Show","Always")]+common
             actions=g.control_actions("menu overlay",double_click=False)
         elif c["kind"]=="selector":
-            parts=[g.entry("face","Image",o(("version",2),("imageType","Regular"),("colour","0"),("image","selector.png")),rect((w-72)//2,5,72,42),"No","Show","Always"),
-                   g.entry("selection","Label",g.label_data("Value","fff9f9f9",12,"horizontallyCentred verticallyCentred"),rect((w-60)//2,13,54,20),"No","Show","Always"),
-                   label("name",c["name"],rect(0,51,w,14),size=13)]
+            parts=[g.entry("face","Image",o(("version",2),("imageType","Regular"),("colour","0"),("image",face["asset"])),rect(fx,fy,fw,fh),"No","Show","Always"),
+                   g.entry("selection","Label",g.label_data("Value","fff9f9f9",10,"horizontallyCentred verticallyCentred"),rect(fx+2,fy+6,fw-12,20),"No","Show","Always"),
+                   label("name",c["name"],rect(0,face["labelY"],w,14),size=13)]
             actions=g.control_actions("menu overlay")
         else:
-            parts=[g.entry("knob","Knob",g.knob_filmstrip_data("gold_knob.png",127,"Vertical"),rect((w-50)//2,0,50,50),"No","Show","Always")]+common
+            parts=[g.entry("knob","Knob",g.knob_filmstrip_data(face["asset"],127,"Vertical"),rect(fx,fy,fw,fh),"No","Show","Always")]+common
             actions=g.control_actions("knob overlay")
     defs.append(o(("key",name),("value",g.component_definition(actions,parts,"0"))))
     children.append(g.entry(name,name,o(("version",1),("handleName","Data")),rect(x,y,w,h),"Yes","Hide","Always",remap=[("Data",p.handle)]))

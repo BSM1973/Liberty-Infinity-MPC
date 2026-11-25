@@ -7,7 +7,15 @@
       "y": 42,
       "w": 122,
       "h": 76,
-      "kind": "toggle"
+      "kind": "toggle",
+      "face": {
+        "w": 36,
+        "h": 34,
+        "y": 6,
+        "asset": "power_36",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 9,
@@ -16,7 +24,15 @@
       "y": 42,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 5,
@@ -25,7 +41,15 @@
       "y": 118,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 10,
@@ -34,7 +58,15 @@
       "y": 118,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 11,
@@ -43,7 +75,15 @@
       "y": 194,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 12,
@@ -52,7 +92,15 @@
       "y": 194,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 13,
@@ -61,7 +109,15 @@
       "y": 270,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 14,
@@ -70,7 +126,15 @@
       "y": 270,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 15,
@@ -79,7 +143,15 @@
       "y": 42,
       "w": 122,
       "h": 76,
-      "kind": "toggle"
+      "kind": "toggle",
+      "face": {
+        "w": 36,
+        "h": 34,
+        "y": 6,
+        "asset": "power_36",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 6,
@@ -88,7 +160,15 @@
       "y": 42,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 16,
@@ -97,7 +177,15 @@
       "y": 118,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 17,
@@ -106,7 +194,15 @@
       "y": 118,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 1,
@@ -115,7 +211,15 @@
       "y": 194,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 2,
@@ -124,7 +228,15 @@
       "y": 194,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 3,
@@ -133,7 +245,15 @@
       "y": 270,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 4,
@@ -142,7 +262,15 @@
       "y": 270,
       "w": 122,
       "h": 76,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 36,
+        "h": 36,
+        "y": 6,
+        "asset": "gold_knob_36.png",
+        "labelY": 47,
+        "valueY": 61
+      }
     },
     {
       "i": 18,
@@ -151,7 +279,15 @@
       "y": 410,
       "w": 88,
       "h": 90,
-      "kind": "toggle"
+      "kind": "toggle",
+      "face": {
+        "w": 40,
+        "h": 36,
+        "y": 8,
+        "asset": "power_40",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 21,
@@ -160,7 +296,15 @@
       "y": 410,
       "w": 88,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 22,
@@ -169,7 +313,15 @@
       "y": 410,
       "w": 88,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 19,
@@ -178,7 +330,15 @@
       "y": 500,
       "w": 88,
       "h": 90,
-      "kind": "selector"
+      "kind": "selector",
+      "face": {
+        "w": 60,
+        "h": 32,
+        "y": 8,
+        "asset": "selector_60.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 20,
@@ -187,7 +347,15 @@
       "y": 500,
       "w": 88,
       "h": 90,
-      "kind": "selector"
+      "kind": "selector",
+      "face": {
+        "w": 60,
+        "h": 32,
+        "y": 8,
+        "asset": "selector_60.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 23,
@@ -196,7 +364,15 @@
       "y": 410,
       "w": 91,
       "h": 90,
-      "kind": "toggle"
+      "kind": "toggle",
+      "face": {
+        "w": 40,
+        "h": 36,
+        "y": 8,
+        "asset": "power_40",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 24,
@@ -205,7 +381,15 @@
       "y": 410,
       "w": 91,
       "h": 90,
-      "kind": "selector"
+      "kind": "selector",
+      "face": {
+        "w": 60,
+        "h": 32,
+        "y": 8,
+        "asset": "selector_60.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 25,
@@ -214,7 +398,15 @@
       "y": 410,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 28,
@@ -223,7 +415,15 @@
       "y": 410,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 26,
@@ -232,7 +432,15 @@
       "y": 500,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 27,
@@ -241,7 +449,15 @@
       "y": 500,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 29,
@@ -250,7 +466,15 @@
       "y": 500,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 30,
@@ -259,7 +483,15 @@
       "y": 500,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 31,
@@ -268,7 +500,15 @@
       "y": 410,
       "w": 91,
       "h": 90,
-      "kind": "toggle"
+      "kind": "toggle",
+      "face": {
+        "w": 40,
+        "h": 36,
+        "y": 8,
+        "asset": "power_40",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 32,
@@ -277,7 +517,15 @@
       "y": 410,
       "w": 91,
       "h": 90,
-      "kind": "selector"
+      "kind": "selector",
+      "face": {
+        "w": 60,
+        "h": 32,
+        "y": 8,
+        "asset": "selector_60.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 33,
@@ -286,7 +534,15 @@
       "y": 410,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 36,
@@ -295,7 +551,15 @@
       "y": 410,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 34,
@@ -304,7 +568,15 @@
       "y": 500,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 35,
@@ -313,7 +585,15 @@
       "y": 500,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 37,
@@ -322,7 +602,15 @@
       "y": 500,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 38,
@@ -331,7 +619,15 @@
       "y": 500,
       "w": 91,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 7,
@@ -340,7 +636,15 @@
       "y": 490,
       "w": 130,
       "h": 90,
-      "kind": "knob"
+      "kind": "knob",
+      "face": {
+        "w": 40,
+        "h": 40,
+        "y": 8,
+        "asset": "gold_knob_40.png",
+        "labelY": 53,
+        "valueY": 67
+      }
     },
     {
       "i": 0,

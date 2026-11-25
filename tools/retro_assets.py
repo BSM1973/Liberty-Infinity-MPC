@@ -19,11 +19,11 @@ d.rounded_rectangle((2,2,1277,625),radius=8,outline=(115,88,43),width=1)
 for title,x,y,w in L["sections"]:
     bottom=359 if y<100 else 613
     d.rounded_rectangle((x-3,y-3,x+w+3,bottom),radius=5,fill=(12,12,14),outline=(89,69,38))
-    for j in range(24):
-        v=round(33-13*j/23)
+    for j in range(20):
+        v=round(33-13*j/19)
         d.line((x,y+j,x+w,y+j),fill=(v,v,v+2))
-    d.line((x,y+24,x+w,y+24),fill=G)
-    d.text((x+9,y+3),title,font=font(15),fill=WHITE)
+    d.line((x,y+20,x+w,y+20),fill=G)
+    d.text((x+9,y+3),title,font=font(13),fill=WHITE)
 x,y,w,h=L["lcd"]
 d.rounded_rectangle((x-6,y-6,x+w+6,y+h+6),radius=12,fill=(4,4,5),outline=G,width=2)
 d.rounded_rectangle((x,y,x+w,y+h),radius=8,fill=(12,16,22),outline=(97,75,43))
@@ -68,7 +68,12 @@ def knob(t):
     q.line(((32+8*math.cos(a))*Q,(31+8*math.sin(a))*Q,(32+20*math.cos(a))*Q,(31+20*math.sin(a))*Q),fill=LIGHT,width=3*Q)
     return k.resize((S,S),Image.Resampling.LANCZOS)
 for i in range(N):strip.paste(knob(i/(N-1)),(0,S*i))
-strip.save(A/"gold_knob.png")
+# Native-size filmstrips keep actual MPC and Mac knob dimensions identical.
+for size in (36,40):
+    compact=Image.new("RGBA",(size,size*N))
+    for i in range(N):
+        compact.paste(strip.crop((0,i*S,S,(i+1)*S)).resize((size,size),Image.Resampling.LANCZOS),(0,i*size))
+    compact.save(A/f"gold_knob_{size}.png")
 def hardware(on):
     k=Image.new("RGBA",(52,48));q=ImageDraw.Draw(k)
     q.rounded_rectangle((2,3,50,47),radius=5,fill=(0,0,0,170))
@@ -80,18 +85,28 @@ def hardware(on):
     q.rounded_rectangle((18,12,33,15),radius=1,fill=(255,218,137) if on else (57,49,36))
     q.line((20,28,31,28),fill=WHITE if on else (156,150,140),width=2)
     return k
-hardware(True).save(A/"power_on.png");hardware(False).save(A/"power_off.png")
+for w,h in ((36,34),(40,36)):
+    for on in (True,False):
+        hardware(on).resize((w,h),Image.Resampling.LANCZOS).save(A/f"power_{w}_{'on' if on else 'off'}.png")
 sel=Image.new("RGBA",(72,42));q=ImageDraw.Draw(sel)
 q.rounded_rectangle((1,1,70,39),radius=4,fill=(25,25,28),outline=G,width=1)
 q.line((5,4,66,4),fill=(90,75,48));q.polygon([(60,14),(66,14),(63,19)],fill=LIGHT)
-sel.save(A/"selector.png")
+sel=sel.resize((60,32),Image.Resampling.LANCZOS);sel.save(A/"selector_60.png")
 # Validate the exact shared slot geometry, including separation and screen bounds.
 C=L["controls"]
 assert len(C)==39 and len({c["i"] for c in C})==39
 for c in C:
     x,y,w,h=(c[k] for k in ("x","y","w","h"))
     assert x>=0 and y>=0 and x+w<=1280 and y+h<=628
-    if c["kind"]!="browser":assert w>=72 and h>=76
+    if c["kind"]!="browser":
+        assert w>=72 and h>=76
+        face=c["face"];fw,fh,fy=face["w"],face["h"],face["y"]
+        assert fw<=w and fy>=0 and fy+fh<=face["labelY"]
+        assert face["labelY"]+14<=face["valueY"] and face["valueY"]+11<=h
+        if c["kind"]=="knob":assert Image.open(A/face["asset"]).size==(fw,fh*127)
+        elif c["kind"]=="toggle":
+            for state in ("on","off"):assert Image.open(A/f"{face['asset']}_{state}.png").size==(fw,fh)
+        else:assert Image.open(A/face["asset"]).size==(fw,fh)
 for a,b in itertools.combinations(C,2):
     assert a["x"]+a["w"]<=b["x"] or b["x"]+b["w"]<=a["x"] or a["y"]+a["h"]<=b["y"] or b["y"]+b["h"]<=a["y"],(a,b)
 # Static design preview, not a screenshot of the running host.
@@ -99,12 +114,19 @@ preview=im.convert("RGBA");p=ImageDraw.Draw(preview)
 for c in C:
     if c["kind"]=="browser":continue
     x,y,w,h=(c[k] for k in ("x","y","w","h"))
-    if c["kind"]=="toggle": asset=hardware(c["i"] in (8,15))
+    face=c["face"];fw,fh,fy=(face[k] for k in ("w","h","y"))
+    if c["kind"]=="toggle":
+        state="on" if c["i"] in (8,15) else "off"
+        asset=Image.open(A/f"{face['asset']}_{state}.png").convert("RGBA")
     elif c["kind"]=="selector":asset=sel
-    else:asset=strip.crop((0,60*S,S,61*S)).resize((50,50),Image.Resampling.LANCZOS)
-    preview.alpha_composite(asset,(x+(w-asset.width)//2,y))
-    p.text((x+w/2,y+51),c["name"],font=font(12),fill=WHITE,anchor="mt")
-    p.text((x+w/2,y+65),"ON" if c["kind"]=="toggle" and c["i"] in (8,15) else "OFF" if c["kind"]=="toggle" else "50 %",font=font(10),fill=WHITE,anchor="mt")
+    else:
+        film=Image.open(A/face["asset"]);asset=film.crop((0,60*fh,fw,61*fh))
+    preview.alpha_composite(asset,(x+(w-fw)//2,y+fy))
+    p.text((x+w/2,y+face["labelY"]),c["name"],font=font(12),fill=WHITE,anchor="mt")
+    if c["kind"]=="selector":
+        p.text((x+w/2-3,y+fy+fh/2),{19:"LP",20:"12",24:"Stereo",32:"Hall"}[c["i"]],font=font(10),fill=WHITE,anchor="mm")
+    else:
+        p.text((x+w/2,y+face["valueY"]),"ON" if c["kind"]=="toggle" and c["i"] in (8,15) else "OFF" if c["kind"]=="toggle" else "50 %",font=font(10),fill=WHITE,anchor="mt")
 p.text((310,100),"CATEGORY",font=font(14),fill=G)
 p.text((510,100),"FACTORY PRESETS",font=font(14),fill=G)
 for i,n in enumerate(("All","Bass","Keys","Pads","Plucks","Leads","Pianos","Strings","Brass","Arpeggios","Bells & Mallets","Atmospheres","Synth & FX")):

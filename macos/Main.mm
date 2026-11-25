@@ -12,7 +12,8 @@ static std::atomic<float> peakL{0},peakR{0};
 static bool played[128];
 static AVAudioEngine *audio;
 static NSArray *controls;
-static NSImage *panel,*strip,*powerOn,*powerOff,*selector;
+static NSImage *panel;
+static NSDictionary<NSString*,NSImage*> *faces;
 static int current=0,category=0,page=0,visible[100],visibleCount=0;
 static const char* categories[]={"All","Bass","Keys","Pads","Plucks","Leads","Pianos","Strings","Brass","Arpeggios","Bells & Mallets","Atmospheres","Synth & FX"};
 static NSString* patchName(int i){return [NSString stringWithUTF8String:factory[i].name];}
@@ -55,21 +56,24 @@ static const char *keyMap="awsedftgyhujkolp";
     [panel drawInRect:NSMakeRect(0,0,1280,628) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
     for(NSDictionary *c in controls){
         int i=[c[@"i"] intValue];NSRect r=bounds(c);if(i==0)continue;
-        NSString *kind=c[@"kind"];
+        NSString *kind=c[@"kind"];NSDictionary *face=c[@"face"];
+        CGFloat fw=[face[@"w"] doubleValue],fh=[face[@"h"] doubleValue],fy=[face[@"y"] doubleValue];
+        NSRect dst=NSMakeRect(NSMidX(r)-fw/2,r.origin.y+fy,fw,fh);
         NSString *value=[NSString stringWithUTF8String:synth->displayText(i).c_str()]?:@"";
+        NSString *asset=face[@"asset"];
         if([kind isEqualToString:@"toggle"]){
-            NSImage *face=synth->getBool(i)?powerOn:powerOff;
-            [face drawInRect:NSMakeRect(NSMidX(r)-26,r.origin.y,52,48) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
+            NSString *key=[asset stringByAppendingString:synth->getBool(i)?@"_on.png":@"_off.png"];
+            [faces[key] drawInRect:dst fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
         }else if([kind isEqualToString:@"selector"]){
-            [selector drawInRect:NSMakeRect(NSMidX(r)-36,r.origin.y+5,72,42) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
-            text(value,NSMakeRect(NSMidX(r)-32,r.origin.y+16,54,16),10,ink(),true);
+            [faces[asset] drawInRect:dst fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
+            text(value,NSMakeRect(dst.origin.x+2,dst.origin.y+8,fw-12,16),10,ink(),true);
         }else{
             int frame=std::clamp(int(std::round(synth->getNormalised(i)*126)),0,126);
-            NSRect src=NSMakeRect(0,(126-frame)*64,64,64);
-            [strip drawInRect:NSMakeRect(NSMidX(r)-25,r.origin.y,50,50) fromRect:src operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
+            NSRect src=NSMakeRect(0,(126-frame)*fh,fw,fh);
+            [faces[asset] drawInRect:dst fromRect:src operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
         }
-        text(c[@"name"],NSMakeRect(r.origin.x,r.origin.y+51,r.size.width,14),12,ink(),true);
-        if(![kind isEqualToString:@"selector"])text(value,NSMakeRect(r.origin.x,r.origin.y+65,r.size.width,11),10,ink(),true);
+        text(c[@"name"],NSMakeRect(r.origin.x,r.origin.y+[face[@"labelY"] doubleValue],r.size.width,14),12,ink(),true);
+        if(![kind isEqualToString:@"selector"])text(value,NSMakeRect(r.origin.x,r.origin.y+[face[@"valueY"] doubleValue],r.size.width,11),10,ink(),true);
     }
     text(@"CATEGORY",NSMakeRect(315,99,175,24),17,gold());
     text(@"FACTORY PRESETS",NSMakeRect(505,99,445,24),17,gold());
@@ -144,9 +148,13 @@ static const char *keyMap="awsedftgyhujkolp";
     NSData *data=[NSData dataWithContentsOfFile:[res stringByAppendingPathComponent:@"layout.json"]];
     NSDictionary *layout=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
     controls=layout[@"controls"];panel=[[NSImage alloc]initWithContentsOfFile:[res stringByAppendingPathComponent:@"retro.png"]];
-    strip=[[NSImage alloc]initWithContentsOfFile:[res stringByAppendingPathComponent:@"gold_knob.png"]];
-    powerOn=[[NSImage alloc]initWithContentsOfFile:[res stringByAppendingPathComponent:@"power_on.png"]];powerOff=[[NSImage alloc]initWithContentsOfFile:[res stringByAppendingPathComponent:@"power_off.png"]];selector=[[NSImage alloc]initWithContentsOfFile:[res stringByAppendingPathComponent:@"selector.png"]];
-    if(!controls||!panel||!strip||!powerOn||!powerOff||!selector){NSLog(@"Missing resources");[NSApp terminate:nil];return;}
+    NSMutableDictionary<NSString*,NSImage*> *loaded=[NSMutableDictionary new];
+    for(NSString *name in @[@"gold_knob_36.png",@"gold_knob_40.png",@"power_36_on.png",@"power_36_off.png",@"power_40_on.png",@"power_40_off.png",@"selector_60.png"]){
+        NSImage *img=[[NSImage alloc]initWithContentsOfFile:[res stringByAppendingPathComponent:name]];
+        if(img)loaded[name]=img;
+    }
+    faces=[loaded copy];
+    if(!controls||!panel||faces.count!=7){NSLog(@"Missing resources");[NSApp terminate:nil];return;}
     synth=std::make_unique<Infinity>();synth->setProgram(0);rebuild();
     if(synth->loadedZones()!=factoryCount*5){NSAlert *a=[NSAlert new];a.messageText=@"Banque sonore incomplète";[a runModal];[NSApp terminate:nil];return;}
     if(MIDIClientCreate(CFSTR("Liberty Infinity"),nullptr,nullptr,&midiClient)==noErr && MIDIInputPortCreate(midiClient,CFSTR("Input"),midiRead,nullptr,&midiPort)==noErr){for(ItemCount i=0;i<MIDIGetNumberOfSources();++i)MIDIPortConnectSource(midiPort,MIDIGetSource(i),nullptr);}
