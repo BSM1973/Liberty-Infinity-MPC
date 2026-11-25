@@ -118,7 +118,7 @@
     [layerMenu addItemsWithTitles:@[@"Couche 1",@"Couche 2",@"Couche 3",@"Couche 4"]];layerMenu.target=self;layerMenu.action=@selector(changeLayer:);[self addSubview:layerMenu];
     source=[self field:@"Source (0–99)" x:270 y:40 w:112];gainField=[self field:@"Gain (dB)" x:394 y:40 w:100];
     panField=[self field:@"Pan (−1 à 1)" x:506 y:40 w:100];tune=[self field:@"Accord (cents)" x:618 y:40 w:104];
-    mute=[self check:@"Mute" x:736 y:49 w:70];solo=[self check:@"Solo" x:736 y:73 w:70];normalize=[self check:@"Normaliser" x:808 y:60 w:108];
+    mute=[self check:@"Mute" x:736 y:49 w:70];solo=[self check:@"Solo" x:736 y:73 w:70];normalize=[self check:@"Normaliser" x:808 y:60 w:90];
     [self button:@"Ajouter WAV" x:16 y:100 w:128 action:@selector(openWavs:)];
     zoneMenu=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(150,102,424,28) pullsDown:NO];zoneMenu.target=self;zoneMenu.action=@selector(changeZone:);[self addSubview:zoneMenu];
     [self button:@"Retirer" x:580 y:100 w:96 action:@selector(removeZone:)];
@@ -127,7 +127,7 @@
     wave=[[InfinityWave alloc]initWithFrame:NSMakeRect(16,140,876,166)];[self addSubview:wave];
     [self label:@"Glisser dans la forme d’onde pour définir la boucle (frames WAV)" x:16 y:309 w:850];
     loop=[self check:@"Boucle" x:16 y:337 w:90];loopStart=[self field:@"Début" x:110 y:330 w:128];loopEnd=[self field:@"Fin exclusive" x:248 y:330 w:128];
-    root=[self field:@"Note MIDI (−1 = auto)" x:386 y:330 w:145];keyLo=[self field:@"Note min." x:541 y:330 w:78];keyHi=[self field:@"Note max." x:629 y:330 w:78];
+    root=[self field:@"Note MIDI (−1 : auto)" x:386 y:330 w:145];keyLo=[self field:@"Note min." x:541 y:330 w:78];keyHi=[self field:@"Note max." x:629 y:330 w:78];
     velLo=[self field:@"Vél. min." x:717 y:330 w:78];velHi=[self field:@"Vél. max." x:805 y:330 w:87];
     keys=[[InfinityKeys alloc]initWithFrame:NSMakeRect(16,385,876,35)];[self addSubview:keys];
     [self label:@"Mapping : notes MIDI 0–127 | export sur 5 notes × 4 vélocités" x:16 y:424 w:870];

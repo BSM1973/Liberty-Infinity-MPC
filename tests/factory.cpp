@@ -5,6 +5,15 @@
 #include <thread>
 #include <fstream>
 #include <iomanip>
+#include <filesystem>
+#include <cstdlib>
+static void writeWav(const std::string& path,const std::vector<int16_t>& samples){
+    std::ofstream f(path,std::ios::binary);auto u16=[&](uint16_t x){f.put(char(x&255));f.put(char(x>>8));};
+    auto u32=[&](uint32_t x){u16(x&65535);u16(x>>16);};
+    f.write("RIFF",4);u32(36+uint32_t(samples.size()*2));f.write("WAVEfmt ",8);u32(16);u16(1);u16(2);u32(48000);u32(192000);u16(4);u16(16);
+    f.write("data",4);u32(uint32_t(samples.size()*2));for(int16_t s:samples)u16(uint16_t(s));
+    if(!f)throw std::runtime_error("WAV write failed");
+}
 int main(){
     Infinity synth;
     if(!synth.usingPackedBank()||synth.loadedZones()!=2000)return 1;
@@ -17,6 +26,7 @@ int main(){
         return false;
     };
     std::ofstream csv("factory-levels.csv");if(!csv)return 11;csv<<"preset_id,name,rms_dbfs,peak_dbfs\n";
+    const char* listen=std::getenv("INFINITY_LISTEN_DIR");if(listen)std::filesystem::create_directories(listen);
     for(int p=0;p<factoryCount;++p){
         double sum=0,peak=0;uint64_t count=0;
         if(!load(p)){std::cerr<<"Load timeout "<<p<<"\n";return 2;}
@@ -34,6 +44,19 @@ int main(){
             if(energy<.00001)return 6;
         }
         csv<<p<<","<<factory[p].name<<","<<std::fixed<<std::setprecision(3)<<10*std::log10(std::max(1e-20,sum/count))<<","<<20*std::log10(std::max(1e-10,peak))<<"\n";
+        if(listen){
+            std::vector<int16_t> recording;recording.reserve(48000*2*4);
+            for(int vel:{40,80,120}){
+                synth.reset();auto note=mpc::MidiEvent::noteOn(0,60,vel),off=mpc::MidiEvent::noteOff(0,60);
+                ctx.midi=&note;ctx.numMidiEvents=1;
+                for(int b=0;b<250;++b){
+                    if(b==125){ctx.midi=&off;ctx.numMidiEvents=1;}
+                    synth.process(ctx);ctx.numMidiEvents=0;
+                    for(int i=0;i<256;++i){recording.push_back(int16_t(std::lround(std::clamp(l[i],-1.f,1.f)*32767)));recording.push_back(int16_t(std::lround(std::clamp(r[i],-1.f,1.f)*32767)));}
+                }
+            }
+            writeWav(std::string(listen)+"/preset-"+std::to_string(p)+".wav",recording);
+        }
         std::cout<<"PASS "<<p<<" "<<factory[p].name<<" ("<<hd::layerCount(p)<<" layers)\n";
     }
     if(!load(2))return 7;

@@ -42,7 +42,12 @@ int main(){
         ctx.midi=&note;ctx.numMidiEvents=1;double L=0,R=0;
         for(int b=0;b<80;++b){s.process(ctx);ctx.numMidiEvents=0;for(int i=0;i<128;++i){L+=l[i]*l[i];R+=r[i]*r[i];}}
         if(L<1e-5||R>L*1e-6||s.activeVoiceCount()!=1)return 8;
+        auto pedalDown=mpc::MidiEvent::cc(0,64,127),pedalUp=mpc::MidiEvent::cc(0,64,0);
+        ctx.midi=&pedalDown;ctx.numMidiEvents=1;s.process(ctx);
         ctx.midi=&off;ctx.numMidiEvents=1;R=0;
+        for(int b=0;b<20;++b){s.process(ctx);ctx.numMidiEvents=0;for(float x:r)R+=x*x;}
+        if(R>1e-8||s.activeVoiceCount()!=1)return 11;
+        ctx.midi=&pedalUp;ctx.numMidiEvents=1;R=0;
         for(int b=0;b<80;++b){s.process(ctx);ctx.numMidiEvents=0;for(float x:r)R+=x*x;}
         if(R<1e-5||s.activeVoiceCount()!=0)return 9;
     }

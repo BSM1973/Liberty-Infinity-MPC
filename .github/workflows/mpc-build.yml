@@ -22,12 +22,15 @@ jobs:
           path: sdk
       - run: pip install pillow numpy scipy
       - run: python tools/test_multisamples.py
+      - run: python tools/qc_ui.py | tee ui-static-validation.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/stereo.cpp -o /tmp/infinity-stereo -ldl
       - run: set -o pipefail; /tmp/infinity-stereo | tee stereo-validation.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/articulations.cpp -o /tmp/infinity-art -ldl
       - run: set -o pipefail; /tmp/infinity-art | tee articulation-validation.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/streaming.cpp -o /tmp/infinity-stream -ldl
       - run: set -o pipefail; /tmp/infinity-stream | tee streaming-comparison.csv
+      - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/streaming_qc.cpp -o /tmp/infinity-stream-qc -ldl
+      - run: set -o pipefail; /tmp/infinity-stream-qc | tee streaming-60s.csv
       - run: python tools/generate_samples.py
       - run: python tools/pack_factory.py
       - run: python tools/retro_assets.py
@@ -36,11 +39,11 @@ jobs:
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/personal_map.cpp -o /tmp/infinity-map -ldl
       - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-map | tee personal-map-validation.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/factory.cpp -o /tmp/infinity-test -ldl
-      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-test | tee factory-validation.txt
+      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" INFINITY_LISTEN_DIR="$PWD/factory-listening" /tmp/infinity-test | tee factory-validation.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/switching.cpp -o /tmp/infinity-switch -ldl
       - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-switch | tee switching-validation.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/performance.cpp -o /tmp/infinity-perf -ldl
-      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-perf | tee performance-v093.csv
+      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-perf | tee performance-v094.csv
       - run: |
           git archive 986a6694bef0d1b84265197aa0e6e146082778d2 plugins/Infinity/src | tar -x -C /tmp
           mkdir -p /tmp/tests
@@ -48,20 +51,36 @@ jobs:
           c++ -std=c++17 -O2 -pthread -I "$PWD/sdk/framework" /tmp/tests/performance.cpp -o /tmp/infinity-perf-base -ldl
           set -o pipefail
           MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-perf-base | tee performance-v06.csv
+      - run: python tools/build_acoustic_preview.py --base plugins/Infinity/Content/Factory.pcm --out acoustic-preview
+      - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/acoustic_preview.cpp -o /tmp/infinity-acoustic -ldl
+      - run: set -o pipefail; /tmp/infinity-acoustic acoustic-preview/Factory.pcm | tee acoustic-validation.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Liberty-Infinity-v0.9.4-CC0-Acoustic-Evaluation
+          path: acoustic-preview/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Liberty-Infinity-v0.9.4-100-Factory-Listening-WAV
+          path: factory-listening/
+          if-no-files-found: error
       - run: python tools/make_retro_skin.py
       - run: python tools/enable_sdk_threads.py
       - run: python sdk/tools/build.py plugins/Infinity
       - run: python sdk/tools/package.py plugins/Infinity
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-MPC-v0.9.3-EXPERIMENTAL
+          name: Liberty-Infinity-MPC-v0.9.4-EXPERIMENTAL
           path: plugins/Infinity/dist/*.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-v0.9.3-Factory-and-Performance-Validation
+          name: Liberty-Infinity-v0.9.4-Factory-and-Performance-Validation
           path: |
             stereo-validation.txt
+            streaming-60s.csv
+            ui-static-validation.txt
+            acoustic-validation.txt
             articulation-validation.txt
             factory-levels.csv
             streaming-comparison.csv
@@ -69,7 +88,7 @@ jobs:
             factory-validation.txt
             switching-validation.txt
             performance-v06.csv
-            performance-v093.csv
+            performance-v094.csv
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -89,12 +108,13 @@ jobs:
           ref: e78bad508a305a92443758eb2bc8b428e9e7a687
           path: sdk
       - run: pip install pillow numpy
+      - run: python tools/qc_ui.py
       - run: python tools/generate_samples.py
       - run: python tools/pack_factory.py
       - run: python tools/retro_assets.py
       - run: bash macos/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-Mac-Test-v0.9.3-arm64
+          name: Liberty-Infinity-Mac-Test-v0.9.4-arm64
           path: dist/*.zip
           if-no-files-found: error

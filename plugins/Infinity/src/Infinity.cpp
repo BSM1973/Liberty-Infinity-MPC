@@ -248,7 +248,7 @@ private:
     std::atomic<int> activeVoices{0};
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=903;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=904;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){
