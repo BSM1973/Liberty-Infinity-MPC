@@ -4,6 +4,8 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
+#include <atomic>
 #include "Factory.h"
 
 namespace {
@@ -21,7 +23,7 @@ struct SVF {
     }
 };
 struct Voice {
-    int note=-1, patch=0, zone=0;
+    int note=-1, patch=0, zone=0, channel=0;
     double pos=0, step=1;
     float vel=0, env=0, l=0, r=0, releaseStep=0;
     int stage=0;
@@ -84,7 +86,7 @@ public:
             const float cut=k==0?6500.f:11000.f+v*180;
             addProgram(q.name,{float(p),a,d,su,rel,cut,0,-9,1,0,0,10,500,75,350,1,0,100,0,0,1,14000,0,0,1,20,350,30,0,100,8000,0,1,20,20,1800,0,100,8000});
         }
-        for(int p=0;p<patches;++p) for(int z=0;z<zones;++z) {
+        if(!loadPackedBank()) for(int p=0;p<patches;++p) for(int z=0;z<zones;++z) {
             std::vector<uint8_t> bytes;
             auto name=std::to_string(p)+"_"+std::to_string(roots[z])+".pcm";
             if(!mpc::readFile(mpc::contentPath("Samples/"+name),bytes) ||
@@ -97,9 +99,11 @@ public:
             }
         }
     }
+    int activeVoiceCount() const {return activeVoices.load(std::memory_order_relaxed);}
+    bool usingPackedBank() const {return packedBank;}
     int loadedZones() const {int n=0;for(const auto& p:bank)for(const auto& z:p)n+=!z.empty();return n;}
     void prepare(double sampleRate,int) override { sr=std::clamp(sampleRate,8000.0,192000.0); for(auto& b:lines)b.assign(size_t(sr*2)+4,0); reset(); }
-    void reset() override { voices={}; pedal=false; bend=0; bendRatio=1; counter=0; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
+    void reset() override { activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
     void process(mpc::ProcessContext& ctx) override {
         const float a=1.f/std::max(1.f,float(sr)*get(Attack)*.001f);
         const float d=1.f/std::max(1.f,float(sr)*get(Decay)*.001f);
@@ -185,11 +189,32 @@ public:
             ctx.outputs[0][i]=std::tanh(l*gain*pl);
             if(ctx.numOutputs>1)ctx.outputs[1][i]=std::tanh(r*gain*pr);
         }
+        int active=0;for(const auto& v:voices)active+=v.stage!=0;
+        activeVoices.store(active,std::memory_order_relaxed);
     }
 private:
+    bool loadPackedBank(){
+        const auto path=mpc::contentPath("Factory.pcm");
+        std::FILE* file=std::fopen(path.c_str(),"rb");if(!file)return false;
+        // All supported targets are little-endian. Reject bad/truncated packs before allocating.
+        const unsigned char expected[]={ 'L','I','N','F','B','K','0','1',100,0,0,0,5,0,0,0,0xc0,0x5d,0,0,0x80,0xbb,0,0 };
+        unsigned char header[sizeof(expected)]{};
+        bool ok=std::fseek(file,0,SEEK_END)==0 && std::ftell(file)==long(sizeof(expected)+size_t(patches)*zones*frames*4)
+            && std::fseek(file,0,SEEK_SET)==0 && std::fread(header,1,sizeof(header),file)==sizeof(header)
+            && std::equal(std::begin(header),std::end(header),std::begin(expected));
+        if(ok)for(auto& p:bank)for(auto& z:p){
+            if(!ok)break;z.resize(frames*2);
+            if(std::fread(z.data(),sizeof(int16_t),z.size(),file)!=z.size())ok=false;
+        }
+        std::fclose(file);
+        if(!ok)for(auto& p:bank)for(auto& z:p)z.clear();
+        packedBank=ok;return ok;
+    }
+    std::atomic<int> activeVoices{0};
+    bool packedBank=false;
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=401;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=500;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void midi(const mpc::MidiEvent& e){
         if(e.isNoteOn()){
@@ -198,10 +223,10 @@ private:
             if(bank[p][z].empty())return;
             Voice* v=&voices[0];
             for(auto& x:voices){if(!x.stage){v=&x;break;}if(x.age<v->age)v=&x;}
-            *v=Voice{};v->note=e.note();v->patch=p;v->zone=z;v->vel=e.velocity()/127.f;
+            *v=Voice{};v->note=e.note();v->channel=e.channel();v->patch=p;v->zone=z;v->vel=e.velocity()/127.f;
             v->step=rate/sr*std::pow(2.,(e.note()-roots[z])/12.);v->stage=1;v->held=true;v->age=++counter;
         }else if(e.isNoteOff()){
-            for(auto& v:voices)if(v.stage && v.note==e.note()){v.held=false;if(!pedal&&v.stage!=4)v.stage=4;}
+            for(auto& v:voices)if(v.stage && v.note==e.note() && v.channel==e.channel()){v.held=false;if((!pedal||v.channel==15)&&v.stage!=4)v.stage=4;}
         }else if(e.isAllNotesOff()){
             for(auto& v:voices)v=Voice{};
             pedal=false;

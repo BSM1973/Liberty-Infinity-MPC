@@ -127,13 +127,16 @@ for c in C:
         p.text((x+w/2-3,y+fy+fh/2),{19:"LP",20:"12",24:"Stereo",32:"Hall"}[c["i"]],font=font(10),fill=WHITE,anchor="mm")
     else:
         p.text((x+w/2,y+face["valueY"]),"ON" if c["kind"]=="toggle" and c["i"] in (8,15) else "OFF" if c["kind"]=="toggle" else "50 %",font=font(10),fill=WHITE,anchor="mt")
-p.text((310,100),"CATEGORY",font=font(14),fill=G)
-p.text((510,100),"FACTORY PRESETS",font=font(14),fill=G)
+p.rounded_rectangle((307,100,492,122),radius=3,outline=G);p.text((315,104),"All styles",font=font(12),fill=WHITE)
+p.rounded_rectangle((500,99,961,123),radius=4,outline=G);p.text((510,104),"Rechercher un preset",font=font(12),fill=WHITE)
 for i,n in enumerate(("All","Bass","Keys","Pads","Plucks","Leads","Pianos","Strings","Brass","Arpeggios","Bells & Mallets","Atmospheres","Synth & FX")):
-    p.text((310,124+i*13),n,font=font(11),fill=WHITE)
-p.rectangle((500,124,960,145),fill=(86,64,30))
-for i,n in enumerate(("BA Deep Bass","KY Crystal Keys","PD Velvet Pad","PL Silver Pluck","BA Analog Titan","BA Berlin Bass","BA Submarine")):
-    p.text((508,125+i*23),n,font=font(15),fill=WHITE)
-p.text((640,309),"BA Deep Bass",font=font(16),fill=WHITE,anchor="mt")
+    p.text((310,128+i*13),n,font=font(11),fill=WHITE)
+p.rectangle((500,128,960,148),fill=(86,64,30))
+for i,n in enumerate(("BA Deep Bass","KY Crystal Keys","PD Velvet Pad","PL Silver Pluck","BA Analog Titan","BA Berlin Bass")):
+    p.text((508,129+i*22),n,font=font(15),fill=WHITE)
+for x,y,w,label in ((307,302,185,"Tous / Favoris"),(500,264,68,"< Son"),(574,264,68,"Page -"),(817,264,68,"Page +"),(891,264,70,"Son >"),(500,288,108,"Ecouter"),(613,288,112,"Enregistrer"),(730,288,112,"Mes presets"),(847,288,114,"Favori : non")):
+    p.rounded_rectangle((x,y,x+w,y+20),radius=3,outline=G);p.text((x+w/2,y+4),label,font=font(11),fill=WHITE,anchor="mt")
+p.text((730,266),"1 / 17 | 100 sons",font=font(11),fill=WHITE,anchor="mt")
+p.text((730,312),"BA Deep Bass",font=font(14),fill=WHITE,anchor="mt")
 preview.convert("RGB").save(A/"black-gold-preview.png")
 print("Black Gold assets generated; 39 unique slots, no overlapping slot bounds")

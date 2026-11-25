@@ -6,3 +6,5 @@ plugins/Infinity/assets/
 plugins/Infinity/skins/
 __pycache__/
 dist/
+plugins/Infinity/Content/Factory.pcm
+plugins/Infinity/Content/Factory.tmp

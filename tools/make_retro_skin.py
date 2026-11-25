@@ -21,9 +21,10 @@ for c in L["controls"]:
     i,x,y,w,h=[c[k] for k in ("i","x","y","w","h")]
     p=by[i]; name="retro"+str(i)
     if i==0:
-        parts=[label("hint","FACTORY PRESETS - DOUBLE TAP TO SELECT",rect(5,3,w-10,30),size=18),
+        parts=[label("hint","FACTORY - DOUBLE TAP FOR SOUND LIST",rect(5,3,w-10,30),size=18),
                g.entry("current","Label",g.label_data("Value","fff9f9f9",35,"horizontallyCentred verticallyCentred"),rect(10,40,w-20,95),"No","Show","Always"),
-               label("categories","100 FACTORY PRESETS / 12 CATEGORIES",rect(10,150,w-20,42),size=20)]
+               label("categories","100 SOUNDS / 12 CATEGORIES",rect(10,143,w-20,30),size=18),
+               label("native","USE MPC PRESET SELECTOR TO LOAD / SAVE PROGRAMS",rect(10,181,w-20,25),size=14)]
         actions=g.control_actions("menu overlay")
     else:
         face=c["face"];fw,fh,fy=(face[k] for k in ("w","h","y"));fx=(w-fw)//2

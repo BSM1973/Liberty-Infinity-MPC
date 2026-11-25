@@ -3,10 +3,12 @@
 #include <iostream>
 int main(){
     Infinity synth;
-    if(synth.loadedZones()!=500){std::cerr<<"Missing zones\n";return 1;}
+    if(!synth.usingPackedBank()||synth.loadedZones()!=500){std::cerr<<"Missing zones\n";return 1;}
     synth.prepare(48000,256);
     float l[256],r[256];float* out[]={l,r};
     mpc::ProcessContext ctx;ctx.outputs=out;ctx.numOutputs=2;ctx.numFrames=256;ctx.sampleRate=48000;
+    auto note=mpc::MidiEvent::noteOn(0,60,100);ctx.midi=&note;ctx.numMidiEvents=1;synth.process(ctx);if(synth.activeVoiceCount()!=1)return 6;
+    auto off=mpc::MidiEvent::cc(0,120,0);ctx.midi=&off;synth.process(ctx);if(synth.activeVoiceCount()!=0)return 7;ctx.numMidiEvents=0;
     for(int p=0;p<factoryCount;++p){
         synth.setProgram(p);synth.reset();
         for(int note:roots){

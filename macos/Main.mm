@@ -14,10 +14,39 @@ static AVAudioEngine *audio;
 static NSArray *controls;
 static NSImage *panel;
 static NSDictionary<NSString*,NSImage*> *faces;
-static int current=0,category=0,page=0,visible[100],visibleCount=0;
+static int current=0,category=0,page=0,style=0,visible[100],visibleCount=0;
+static constexpr int pageSize=6;
+static bool favoritesOnly=false;
+static NSMutableSet<NSString*> *favorites;
+static NSMutableDictionary<NSString*,NSDictionary*> *userPresets;
+static NSString *query=@"",*userName=nil;
+static std::atomic<int> auditionCommand{0},auditionPlaying{0},midiFlash{0};
 static const char* categories[]={"All","Bass","Keys","Pads","Plucks","Leads","Pianos","Strings","Brass","Arpeggios","Bells & Mallets","Atmospheres","Synth & FX"};
 static NSString* patchName(int i){return [NSString stringWithUTF8String:factory[i].name];}
-static void rebuild(){visibleCount=0;for(int i=0;i<factoryCount;++i)if(category==0||std::string(factory[i].category)==categories[category])visible[visibleCount++]=i;page=0;}
+static const char* styles[]={"All styles","Electronic","Cinematic","Ambient","Pop / Keys","Retro"};
+static bool matchesStyle(int i){
+    int k=factory[i].kind,v=factory[i].variant;
+    switch(style){
+        case 1:return k==0||k==3||k==4||k==8||k==11;
+        case 2:return k==2||k==6||k==7||k==10||k==11;
+        case 3:return k==2||k==9||k==10||k==3;
+        case 4:return k==1||k==5||k==3||k==6;
+        case 5:return (k==0||k==1||k==4||k==7)&&v%3!=2;
+        default:return true;
+    }
+}
+static void rebuild(){
+    visibleCount=0;
+    for(int i=0;i<factoryCount;++i){
+        if(category&&std::string(factory[i].category)!=categories[category])continue;
+        if(!matchesStyle(i)||(favoritesOnly&&![favorites containsObject:patchName(i)]))continue;
+        NSString *hay=[NSString stringWithFormat:@"%@ %s",patchName(i),factory[i].category];
+        if(query.length&&[hay rangeOfString:query options:NSCaseInsensitiveSearch|NSDiacriticInsensitiveSearch].location==NSNotFound)continue;
+        visible[visibleCount++]=i;
+    }
+    page=0;
+}
+static void persist(){NSUserDefaults *d=NSUserDefaults.standardUserDefaults;[d setObject:favorites.allObjects forKey:@"InfinityFavoritesV1"];[d setObject:userPresets forKey:@"InfinityUserPresetsV1"];}
 static MIDIClientRef midiClient=0;static MIDIPortRef midiPort=0;
 static std::atomic<int> external[128],externalPedal{0},externalBend{8192};
 static int lastPedal=0,lastBend=8192;
@@ -42,15 +71,20 @@ static void text(NSString *s,NSRect r,CGFloat size,NSColor *c,bool center=false)
     NSMutableParagraphStyle *p=[NSMutableParagraphStyle new];p.alignment=center?NSTextAlignmentCenter:NSTextAlignmentLeft;
     [s drawInRect:r withAttributes:@{NSFontAttributeName:[NSFont systemFontOfSize:size weight:NSFontWeightMedium],NSForegroundColorAttributeName:c,NSParagraphStyleAttributeName:p}];
 }
+static void browserButton(NSString *title, NSRect r, bool active=false){
+    NSBezierPath *p=[NSBezierPath bezierPathWithRoundedRect:r xRadius:3 yRadius:3];[(active?selection():[NSColor colorWithWhite:.10 alpha:1])setFill];[p fill];[gold() setStroke];p.lineWidth=.7;[p stroke];
+    text(title,NSInsetRect(r,3,2),11,ink(),true);
+}
 static NSRect bounds(NSDictionary *c){return NSMakeRect([c[@"x"] doubleValue],[c[@"y"] doubleValue],[c[@"w"] doubleValue],[c[@"h"] doubleValue]);}
-static void choose(int p){if(p<0||p>=factoryCount)return;current=p;synth->setProgram(p);}
+static void choose(int p){if(p<0||p>=factoryCount)return;auditionCommand.store(-1);current=p;userName=nil;synth->setProgram(p);}
 static const char *keyMap="awsedftgyhujkolp";
-@interface Panel:NSView {int drag; CGFloat startY; float startValue; int mouseNote;}
+@interface Panel:NSView<NSSearchFieldDelegate> {int drag; CGFloat startY; float startValue; int mouseNote; NSSearchField *search;}
 @end
 @implementation Panel
 -(BOOL)isFlipped{return YES;}
 -(BOOL)acceptsFirstResponder{return YES;}
--(instancetype)initWithFrame:(NSRect)r{if((self=[super initWithFrame:r])){drag=-1;mouseNote=-1;}return self;}
+-(instancetype)initWithFrame:(NSRect)r{if((self=[super initWithFrame:r])){drag=-1;mouseNote=-1;
+    search=[[NSSearchField alloc]initWithFrame:NSMakeRect(500,99,461,24)];search.placeholderString=@"Rechercher un preset";search.font=[NSFont systemFontOfSize:12];search.delegate=self;search.sendsSearchStringImmediately=YES;search.appearance=[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];[self addSubview:search];}return self;}
 -(void)drawRect:(NSRect)dirty {
     (void)dirty;
     [panel drawInRect:NSMakeRect(0,0,1280,628) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
@@ -75,22 +109,34 @@ static const char *keyMap="awsedftgyhujkolp";
         text(c[@"name"],NSMakeRect(r.origin.x,r.origin.y+[face[@"labelY"] doubleValue],r.size.width,14),12,ink(),true);
         if(![kind isEqualToString:@"selector"])text(value,NSMakeRect(r.origin.x,r.origin.y+[face[@"valueY"] doubleValue],r.size.width,11),10,ink(),true);
     }
-    text(@"CATEGORY",NSMakeRect(315,99,175,24),17,gold());
-    text(@"FACTORY PRESETS",NSMakeRect(505,99,445,24),17,gold());
+    browserButton([NSString stringWithUTF8String:styles[style]],NSMakeRect(307,100,185,22),style!=0);
     for(int i=0;i<13;++i){
-        NSRect r=NSMakeRect(307,124+i*13,185,13);
+        NSRect r=NSMakeRect(307,128+i*13,185,13);
         if(i==category){[selection()setFill];NSRectFill(r);}
-        text([NSString stringWithUTF8String:categories[i]],r,11,ink());
+        text([NSString stringWithUTF8String:categories[i]],NSInsetRect(r,3,0),11,ink());
     }
-    for(int row=0;row<7;++row){int at=page*7+row;if(at>=visibleCount)break;int i=visible[at];
-        NSRect r=NSMakeRect(500,124+row*23,461,22);
+    browserButton(favoritesOnly?@"Favoris actifs":@"Tous / Favoris",NSMakeRect(307,302,185,23),favoritesOnly);
+    for(int row=0;row<pageSize;++row){int at=page*pageSize+row;if(at>=visibleCount)break;int i=visible[at];
+        NSRect r=NSMakeRect(500,128+row*22,461,21);
         if(i==current){[selection()setFill];NSRectFill(r);}
-        text(patchName(i),NSInsetRect(r,6,0),16,ink());
+        text(patchName(i),NSMakeRect(508,r.origin.y,403,21),15,ink());
+        text([favorites containsObject:patchName(i)]?@"*":@"+",NSMakeRect(928,r.origin.y,28,21),15,gold(),true);
     }
-    text(@"< PREV",NSMakeRect(505,286,80,20),12,ink(),true);
-    text([NSString stringWithFormat:@"%d / %d",page+1,std::max(1,(visibleCount+6)/7)],NSMakeRect(605,286,250,20),12,ink(),true);
-    text(@"NEXT >",NSMakeRect(865,286,80,20),12,ink(),true);
-    text(patchName(current),NSMakeRect(310,307,660,21),17,ink(),true);
+    if(!visibleCount)text(@"Aucun résultat",NSMakeRect(505,159,450,25),15,ink(),true);
+    browserButton(@"< Son",NSMakeRect(500,264,68,20));
+    browserButton(@"Page -",NSMakeRect(574,264,68,20));
+    text([NSString stringWithFormat:@"%d / %d | %d sons",page+1,std::max(1,(visibleCount+pageSize-1)/pageSize),visibleCount],NSMakeRect(645,266,169,18),11,ink(),true);
+    browserButton(@"Page +",NSMakeRect(817,264,68,20));
+    browserButton(@"Son >",NSMakeRect(891,264,70,20));
+    browserButton(auditionPlaying.load()?@"Stop":@"Écouter",NSMakeRect(500,288,108,20),auditionPlaying.load()!=0);
+    browserButton(@"Enregistrer",NSMakeRect(613,288,112,20));
+    browserButton(@"Mes presets",NSMakeRect(730,288,112,20));
+    browserButton([favorites containsObject:patchName(current)]?@"Favori : oui":@"Favori : non",NSMakeRect(847,288,114,20),[favorites containsObject:patchName(current)]);
+    text(userName?:patchName(current),NSMakeRect(500,312,461,19),14,ink(),true);
+    [(midiFlash.load()>0?gold():[NSColor colorWithWhite:.16 alpha:1]) setFill];
+    [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(1047,414,8,8)]fill];
+    text(@"MIDI",NSMakeRect(1060,410,45,16),11,ink());
+    text([NSString stringWithFormat:@"%d / 32 voix",synth->activeVoiceCount()],NSMakeRect(1046,433,95,18),11,ink());
     for(int c=0;c<2;++c){
         float p=c?peakR.load():peakL.load();
         int n=std::clamp(int((20*std::log10(std::max(p,.0001f))+54)/6),0,9);
@@ -111,9 +157,23 @@ static const char *keyMap="awsedftgyhujkolp";
 -(void)mouseDown:(NSEvent*)e{
     NSPoint p=[self convertPoint:e.locationInWindow fromView:nil];[self.window makeFirstResponder:self];
     if(p.y>=653&&p.y<715&&p.x>=16&&p.x<1264){mouseNote=60+int((p.x-16)/78);notes[mouseNote].store(100);return;}
-    if(p.x>=307&&p.x<492&&p.y>=124&&p.y<293){category=int((p.y-124)/13);rebuild();return;}
-    if(p.x>500&&p.x<961&&p.y>=124&&p.y<285){int at=page*7+int((p.y-124)/23);if(at<visibleCount)choose(visible[at]);return;}
-    if(p.y>=286&&p.y<308){if(p.x>505&&p.x<585)page=std::max(0,page-1);if(p.x>865&&p.x<945)page=std::min((visibleCount-1)/7,page+1);return;}
+    if(p.x>=307&&p.x<492&&p.y>=100&&p.y<122){
+        NSMenu *menu=[[NSMenu alloc]initWithTitle:@"Style"];for(int j=0;j<6;++j){NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:[NSString stringWithUTF8String:styles[j]] action:@selector(selectStyle:) keyEquivalent:@""];item.target=self;item.tag=j;item.state=j==style?NSControlStateValueOn:NSControlStateValueOff;[menu addItem:item];}[NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
+    }
+    if(p.x>=307&&p.x<492&&p.y>=128&&p.y<297){category=int((p.y-128)/13);rebuild();return;}
+    if(NSPointInRect(p,NSMakeRect(307,302,185,23))){favoritesOnly=!favoritesOnly;rebuild();return;}
+    if(p.x>=500&&p.x<961&&p.y>=128&&p.y<260){int at=page*pageSize+int((p.y-128)/22);if(at<visibleCount){if(p.x>=920)[self toggleFavorite:visible[at]];else choose(visible[at]);}return;}
+    if(p.y>=264&&p.y<284&&p.x>=500&&p.x<961){
+        if(p.x<568)[self stepPreset:-1];else if(p.x>=574&&p.x<642)page=std::max(0,page-1);
+        else if(p.x>=817&&p.x<885)page=std::min(std::max(0,(visibleCount-1)/pageSize),page+1);
+        else if(p.x>=891)[self stepPreset:1];return;
+    }
+    if(p.y>=288&&p.y<308&&p.x>=500&&p.x<961){
+        if(p.x<608)auditionCommand.store(auditionPlaying.load()?-1:1);
+        else if(p.x>=613&&p.x<725)[self saveUserPreset];
+        else if(p.x>=730&&p.x<842)[self showUserPresets:e];
+        else if(p.x>=847)[self toggleFavorite:current];return;
+    }
     for(NSDictionary *c in controls){int i=[c[@"i"] intValue];if(!i||!NSPointInRect(p,bounds(c)))continue;
         if(i==8||i==15||i==18||i==23||i==31){synth->set(i,!synth->getBool(i));return;}
         if(i==19||i==20||i==24||i==32){
@@ -127,6 +187,32 @@ static const char *keyMap="awsedftgyhujkolp";
         }
         drag=i;startY=p.y;startValue=synth->getNormalised(i);return;
     }
+}
+-(void)controlTextDidChange:(NSNotification*)n{if(n.object==search){query=[search.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];rebuild();[self setNeedsDisplay:YES];}}
+-(void)selectStyle:(NSMenuItem*)item{style=int(item.tag);rebuild();[self setNeedsDisplay:YES];}
+-(void)stepPreset:(int)delta{if(!visibleCount)return;int at=-1;for(int j=0;j<visibleCount;++j)if(visible[j]==current){at=j;break;}at=at<0?(delta>0?0:visibleCount-1):(at+delta+visibleCount)%visibleCount;choose(visible[at]);page=at/pageSize;}
+-(void)toggleFavorite:(int)i{NSString *name=patchName(i);if([favorites containsObject:name])[favorites removeObject:name];else [favorites addObject:name];persist();int old=page;rebuild();page=std::min(old,std::max(0,(visibleCount-1)/pageSize));}
+-(void)saveUserPreset{
+    NSAlert *a=[NSAlert new];a.messageText=@"Enregistrer un preset personnel";[a addButtonWithTitle:@"Enregistrer"];[a addButtonWithTitle:@"Annuler"];
+    NSTextField *field=[[NSTextField alloc]initWithFrame:NSMakeRect(0,0,270,24)];field.stringValue=userName?:patchName(current);a.accessoryView=field;a.window.initialFirstResponder=field;
+    if([a runModal]!=NSAlertFirstButtonReturn)return;
+    NSString *name=[field.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];if(!name.length||name.length>80)return;
+    if(userPresets[name]){NSAlert *confirm=[NSAlert new];confirm.messageText=@"Remplacer ce preset ?";[confirm addButtonWithTitle:@"Remplacer"];[confirm addButtonWithTitle:@"Annuler"];if([confirm runModal]!=NSAlertFirstButtonReturn)return;}
+    NSMutableDictionary *values=[NSMutableDictionary new];for(int i=0;i<synth->numParams();++i)values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]]=@(synth->getNormalised(i));
+    userPresets[name]=@{@"schema":@1,@"factory":patchName(current),@"values":values};userName=name;persist();
+}
+-(void)showUserPresets:(NSEvent*)e{
+    NSMenu *menu=[[NSMenu alloc]initWithTitle:@"Mes presets"];NSArray *names=[userPresets.allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    if(!names.count){NSMenuItem *empty=[[NSMenuItem alloc]initWithTitle:@"Aucun preset personnel" action:nil keyEquivalent:@""];[menu addItem:empty];}
+    for(NSString *name in names){NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:name action:@selector(loadUserPreset:) keyEquivalent:@""];item.target=self;item.representedObject=name;[menu addItem:item];}
+    [NSMenu popUpContextMenu:menu withEvent:e forView:self];
+}
+-(void)loadUserPreset:(NSMenuItem*)item{
+    NSString *name=item.representedObject;NSDictionary *record=userPresets[name];if(![record isKindOfClass:NSDictionary.class]||![record[@"schema"] isEqual:@1])return;
+    NSDictionary *values=record[@"values"];if(![values isKindOfClass:NSDictionary.class])return;
+    int p=-1;for(int i=0;i<factoryCount;++i)if([record[@"factory"] isEqual:patchName(i)]){p=i;break;}if(p<0)return;
+    for(int i=1;i<synth->numParams();++i){id v=values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]];if(![v isKindOfClass:NSNumber.class]||!std::isfinite([v doubleValue])||[v doubleValue]<0||[v doubleValue]>1)return;}
+    choose(p);for(int i=1;i<synth->numParams();++i)synth->setNormalised(i,[values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]] floatValue]);userName=name;
 }
 -(void)selectMode:(NSMenuItem*)item{synth->set(int(item.tag/100),int(item.tag%100));[self setNeedsDisplay:YES];}
 -(void)mouseDragged:(NSEvent*)e{if(drag>=0){NSPoint p=[self convertPoint:e.locationInWindow fromView:nil];synth->setNormalised(drag,std::clamp(startValue+float(startY-p.y)/150.f,0.f,1.f));}}
@@ -155,7 +241,8 @@ static const char *keyMap="awsedftgyhujkolp";
     }
     faces=[loaded copy];
     if(!controls||!panel||faces.count!=7){NSLog(@"Missing resources");[NSApp terminate:nil];return;}
-    synth=std::make_unique<Infinity>();synth->setProgram(0);rebuild();
+    synth=std::make_unique<Infinity>();synth->setProgram(0);
+    NSUserDefaults *d=NSUserDefaults.standardUserDefaults;favorites=[NSMutableSet setWithArray:[d arrayForKey:@"InfinityFavoritesV1"]?:@[]];userPresets=[[d dictionaryForKey:@"InfinityUserPresetsV1"] mutableCopy]?:[NSMutableDictionary new];rebuild();
     if(synth->loadedZones()!=factoryCount*5){NSAlert *a=[NSAlert new];a.messageText=@"Banque sonore incomplète";[a runModal];[NSApp terminate:nil];return;}
     if(MIDIClientCreate(CFSTR("Liberty Infinity"),nullptr,nullptr,&midiClient)==noErr && MIDIInputPortCreate(midiClient,CFSTR("Input"),midiRead,nullptr,&midiPort)==noErr){for(ItemCount i=0;i<MIDIGetNumberOfSources();++i)MIDIPortConnectSource(midiPort,MIDIGetSource(i),nullptr);}
     audio=[AVAudioEngine new];
@@ -165,9 +252,19 @@ static const char *keyMap="awsedftgyhujkolp";
     synth->prepare(sr,4096);
     AVAudioSourceNode *source=[[AVAudioSourceNode alloc]initWithFormat:fmt renderBlock:^OSStatus(BOOL *silence,const AudioTimeStamp *stamp,AVAudioFrameCount count,AudioBufferList *abl){
         (void)stamp;if(abl->mNumberBuffers<2){for(UInt32 i=0;i<abl->mNumberBuffers;i++)memset(abl->mBuffers[i].mData,0,abl->mBuffers[i].mDataByteSize);*silence=YES;return noErr;}
-        mpc::MidiEvent events[130];int n=0;
+        mpc::MidiEvent events[134];int n=0;
         int ped=externalPedal.load(),bend=externalBend.load();if(ped!=lastPedal){lastPedal=ped;events[n++]=mpc::MidiEvent::cc(0,64,ped);}if(bend!=lastBend){lastBend=bend;mpc::MidiEvent e;e.size=3;e.data[0]=0xE0;e.data[1]=bend&127;e.data[2]=(bend>>7)&127;events[n++]=e;}
         for(int i=0;i<128;++i){int v=std::max(notes[i].load(std::memory_order_relaxed),external[i].load(std::memory_order_relaxed));if(bool(v)!=played[i]){played[i]=bool(v);events[n++]=v?mpc::MidiEvent::noteOn(0,i,v):mpc::MidiEvent::noteOff(0,i);}}
+        if(n)midiFlash.store(int(sr*.15));else midiFlash.store(std::max(0,midiFlash.load()-int(count)));
+        static int previewFrames=0;
+        int command=auditionCommand.exchange(0);
+        if(command||previewFrames>0){
+            if(previewFrames>0&&(command||previewFrames<=int(count))){
+                events[n++]=mpc::MidiEvent::noteOff(15,60);previewFrames=0;auditionPlaying.store(0);
+            }
+            if(command==1){events[n++]=mpc::MidiEvent::noteOn(15,60,95);previewFrames=int(sr*.85);auditionPlaying.store(1);}
+            else if(previewFrames>0)previewFrames-=int(count);
+        }
         float *out[]={static_cast<float*>(abl->mBuffers[0].mData),static_cast<float*>(abl->mBuffers[1].mData)};
         mpc::ProcessContext ctx;ctx.outputs=out;ctx.numOutputs=2;ctx.numFrames=count;ctx.midi=events;ctx.numMidiEvents=n;ctx.sampleRate=sr;
         synth->process(ctx);float l=0,r=0;for(unsigned i=0;i<count;++i){l=std::max(l,std::abs(out[0][i]));r=std::max(r,std::abs(out[1][i]));}
@@ -177,7 +274,7 @@ static const char *keyMap="awsedftgyhujkolp";
     NSError *error=nil;if(![audio startAndReturnError:&error]){NSAlert *a=[NSAlert new];a.messageText=@"Audio indisponible";a.informativeText=error.localizedDescription?:@"Erreur audio";[a runModal];[NSApp terminate:nil];return;}
     NSRect screen=NSScreen.mainScreen.visibleFrame;CGFloat scale=std::min(CGFloat(1),std::min((screen.size.width-24)/1280,(screen.size.height-48)/720));
     self.window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,1280*scale,720*scale) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskMiniaturizable backing:NSBackingStoreBuffered defer:NO];
-    self.window.title=@"Liberty Infinity | Black Gold | MPC Test";Panel *v=[[Panel alloc]initWithFrame:NSMakeRect(0,0,1280*scale,720*scale)];self.window.contentView=v;[v setBounds:NSMakeRect(0,0,1280,720)];[self.window center];[self.window makeKeyAndOrderFront:nil];[self.window makeFirstResponder:v];
+    self.window.title=@"Liberty Infinity | Black Gold | Factory Browser Pro";Panel *v=[[Panel alloc]initWithFrame:NSMakeRect(0,0,1280*scale,720*scale)];self.window.contentView=v;[v setBounds:NSMakeRect(0,0,1280,720)];[self.window center];[self.window makeKeyAndOrderFront:nil];[self.window makeFirstResponder:v];
     self.timer=[NSTimer scheduledTimerWithTimeInterval:1./30 repeats:YES block:^(NSTimer *t){(void)t;[v setNeedsDisplay:YES];}];
     [NSApp activateIgnoringOtherApps:YES];
 }

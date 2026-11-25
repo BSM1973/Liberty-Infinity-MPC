@@ -1,8 +1,8 @@
-# Liberty Infinity — MPC ROMpler v0.4.1
+# Liberty Infinity — MPC ROMpler v0.5.0
 
 Plugin principal MPC ARM32/ARM64, MPC OS 3.10.1+ External Plugin Support bêta. Application macOS ARM64 de test, même DSP et banque. Pas un AU.
 
-100 presets de développement originaux dans 12 catégories, 500 zones stéréo PCM16 24 kHz, 2 secondes par zone, environ 96 MB de PCM préchargé par instance. Les sons sont générés hors ligne (pas de synthèse d'oscillateur dans le moteur de lecture). Les noms de pianos/cordes/cuivres décrivent des approximations synthétiques, pas des enregistrements acoustiques. Boucles à fondu sur les catégories tenues. Banque premium et qualité sonore à valider.
+100 presets de développement originaux dans 12 catégories, 500 zones stéréo PCM16 24 kHz, 2 secondes par zone, environ 96 MB de PCM préchargé par instance, dans un fichier unique. Les sons sont générés hors ligne (pas de synthèse d'oscillateur dans le moteur de lecture). Les noms de pianos/cordes/cuivres décrivent des approximations synthétiques, pas des enregistrements acoustiques. Boucles à fondu sur les catégories tenues. Banque premium et qualité sonore à valider.
 
 Mac : catégories, pagination, clavier virtuel/informatique, MIDI CoreMIDI (sources présentes au lancement, notes/vélocité, sustain, pitch bend), vu-mètres. Les branchements MIDI après lancement et les messages MIDI complexes restent à valider. Signature ad hoc, non notarisé. MPC : sélection via programmes natifs ou menu Sound (ce dernier sélectionne le sample, pas tous les réglages du programme), Q-Links. Pas encore de vu-mètres MPC. Les presets de projet v0.2 peuvent nécessiter une nouvelle sélection en raison de la plage Sound élargie.
 
@@ -15,3 +15,7 @@ Façade noire, textes blancs, accents or champagne. Ressources originales partag
 ## Compact controls
 
 Filter Modifier et Amp Modifier : knobs 36 px au lieu de 50, interrupteurs 36 × 34 au lieu de 52 × 48. Autres modules : knobs 40 px, interrupteurs 40 × 36, sélecteurs 60 × 32 au lieu de 72 × 42. Les zones de contrôle, la taille des textes de paramètres et le navigateur restent inchangés. Les trois rendus (Mac, MPC et aperçu) utilisent les mêmes dimensions du layout. Les images à taille native sont contrôlées par le script. DSP inchangé sauf version.
+
+## Factory Browser Pro
+
+Sur Mac : recherche instantanée nom/catégorie, filtre de styles indicatif dérivé des familles de sons, favoris persistants, pagination et navigation entre sons filtrés, préécoute de 0,85 s, sauvegarde/chargement personnels via NSUserDefaults (38 paramètres réglables et identifiant stable de la source), voyant MIDI et compteur de voix réel. Sur MPC : navigateur et sauvegarde natifs du firmware (.xpl), liste Sound et Q-Links ; le SDK actuel ne fournit pas de champ de recherche texte ou de gestionnaire de favoris personnalisés documenté. Les presets Mac ne sont pas des .xpl. Les deux cibles chargent désormais Factory.pcm (un fichier séquentiel, 500 zones identiques, format contrôlé), avec fallback sur l'ancienne structure si disponible. Aucun changement de samples ; empreintes vérifiées lors de l'assemblage. RAM PCM inchangée, gain de temps non mesuré sur matériel. Aperçu statique Mac uniquement ; test visuel et MIDI physique nécessaires.
