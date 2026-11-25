@@ -14,6 +14,7 @@ static AVAudioEngine *audio;
 static NSArray *controls;
 static NSImage *panel;
 static NSDictionary<NSString*,NSImage*> *faces;
+static int pcmSelection=-1;
 static int current=0,category=0,page=0,style=0,visible[500],visibleCount=0;
 static constexpr int pageSize=6;
 static bool favoritesOnly=false;
@@ -83,7 +84,7 @@ static void browserButton(NSString *title, NSRect r, bool active=false){
 }
 #include "MultisampleStudio.h"
 static NSRect bounds(NSDictionary *c){return NSMakeRect([c[@"x"] doubleValue],[c[@"y"] doubleValue],[c[@"w"] doubleValue],[c[@"h"] doubleValue]);}
-static void choose(int p){if(p<0||p>=factoryCount)return;auditionCommand.store(-1);current=p;userName=nil;synth->setProgram(p);}
+static void choose(int p){if(p<0||p>=factoryCount)return;pcmSelection=-1;auditionCommand.store(-1);current=p;userName=nil;synth->setProgram(p);}
 static void chooseRow(int i){
     if(!activeLibrary()){choose(i);selectedLibraryRow=-1;return;}
     NSDictionary *record=libraryPreset(i);int f=factoryIndex(record);if(f<0)return;
@@ -123,7 +124,8 @@ static const char *keyMap="awsedftgyhujkolp";
         text(c[@"name"],NSMakeRect(r.origin.x,r.origin.y+[face[@"labelY"] doubleValue],r.size.width,14),12,ink(),true);
         if(![kind isEqualToString:@"selector"])text(value,NSMakeRect(r.origin.x,r.origin.y+[face[@"valueY"] doubleValue],r.size.width,11),10,ink(),true);
     }
-    browserButton([NSString stringWithFormat:@"%@ ▾",collectionName()],NSMakeRect(540,54,260,26),true);
+    NSString *shown=pcmSelection>=0?@"Extension PCM":collectionName();
+    browserButton([NSString stringWithFormat:@"%@ ▾",shown],NSMakeRect(540,54,260,26),true);
     browserButton([NSString stringWithUTF8String:styles[style]],NSMakeRect(307,100,185,22),style!=0);
     for(int i=0;i<13;++i){
         NSRect r=NSMakeRect(307,128+i*13,185,13);
@@ -133,7 +135,7 @@ static const char *keyMap="awsedftgyhujkolp";
     browserButton(activeLibrary()?@"Collection externe":favoritesOnly?@"Favoris actifs":@"Tous / Favoris",NSMakeRect(307,302,185,23),!activeLibrary()&&favoritesOnly);
     for(int row=0;row<pageSize;++row){int at=page*pageSize+row;if(at>=visibleCount)break;int i=visible[at];
         NSRect r=NSMakeRect(500,128+row*22,461,21);
-        if(i==(activeLibrary()?selectedLibraryRow:current)){[selection()setFill];NSRectFill(r);}
+        if(pcmSelection<0&&i==(activeLibrary()?selectedLibraryRow:current)){[selection()setFill];NSRectFill(r);}
         NSString *name=activeLibrary()?libraryPresetName(i):patchName(i);
         text(name,NSMakeRect(508,r.origin.y,403,21),15,ink());
         if(!activeLibrary())text([favorites containsObject:patchName(i)]?@"*":@"+",NSMakeRect(928,r.origin.y,28,21),15,gold(),true);
@@ -148,7 +150,7 @@ static const char *keyMap="awsedftgyhujkolp";
     browserButton(@"Enregistrer",NSMakeRect(613,288,112,20));
     browserButton(@"Mes presets",NSMakeRect(730,288,112,20));
     browserButton(activeLibrary()?@"Factory 1":([favorites containsObject:patchName(current)]?@"Favori : oui":@"Favori : non"),NSMakeRect(847,288,114,20),!activeLibrary()&&[favorites containsObject:patchName(current)]);
-    text(synth->loadedPatch()!=current?@"Chargement du son...":(userName?:patchName(current)),NSMakeRect(500,312,461,19),14,ink(),true);
+    text(synth->loadedPatch()!=(pcmSelection>=0?pcmSelection:current)?@"Chargement du son...":(pcmSelection>=0?[NSString stringWithUTF8String:synth->displayText(0).c_str()]:(userName?:patchName(current))),NSMakeRect(500,312,461,19),14,ink(),true);
     [(midiFlash.load()>0?gold():[NSColor colorWithWhite:.16 alpha:1]) setFill];
     [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(1047,414,8,8)]fill];
     text(@"MIDI",NSMakeRect(1060,410,45,16),11,ink());
@@ -179,7 +181,19 @@ static const char *keyMap="awsedftgyhujkolp";
         for(NSInteger j=0;j<(NSInteger)libraries.count;++j){
             NSDictionary *lib=libraries[j];NSString *title=[NSString stringWithFormat:@"%@ — %@ (%lu)",lib[@"name"],lib[@"vendor"],(unsigned long)[lib[@"presets"] count]];
             NSMenuItem *it=[[NSMenuItem alloc]initWithTitle:title action:@selector(selectCollection:) keyEquivalent:@""];it.target=self;it.tag=j;it.state=collection==j?NSControlStateValueOn:NSControlStateValueOff;[menu addItem:it];
-        }[NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
+        }
+        for(int s=0;s<hd::expansionSlots;++s)if(auto* ex=synth->expansion(s)){
+            NSString *title=[NSString stringWithUTF8String:ex->name.c_str()]?:@"Extension PCM";
+            NSMenuItem *parent=[[NSMenuItem alloc]initWithTitle:title action:nil keyEquivalent:@""];
+            NSMenu *sub=[[NSMenu alloc]initWithTitle:title];parent.submenu=sub;
+            for(int j=0;j<hd::expansionCapacity;++j){int index=factoryCount+s*hd::expansionCapacity+j;
+                if(auto* ep=synth->expansionPreset(index)){
+                    NSMenuItem *it=[[NSMenuItem alloc]initWithTitle:[NSString stringWithUTF8String:ep->name.c_str()]?:@"Preset" action:@selector(selectPCM:) keyEquivalent:@""];
+                    it.target=self;it.tag=index;[sub addItem:it];
+                }
+            }[menu addItem:parent];
+        }
+        [NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
     }
     if(p.x>=307&&p.x<492&&p.y>=100&&p.y<122){
         NSMenu *menu=[[NSMenu alloc]initWithTitle:@"Style"];for(int j=0;j<6;++j){NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:[NSString stringWithUTF8String:styles[j]] action:@selector(selectStyle:) keyEquivalent:@""];item.target=self;item.tag=j;item.state=j==style?NSControlStateValueOn:NSControlStateValueOff;[menu addItem:item];}[NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
@@ -193,8 +207,8 @@ static const char *keyMap="awsedftgyhujkolp";
         else if(p.x>=891)[self stepPreset:1];return;
     }
     if(p.y>=288&&p.y<308&&p.x>=500&&p.x<961){
-        if(p.x<608&&synth->loadedPatch()==current)auditionCommand.store(auditionPlaying.load()?-1:1);
-        else if(p.x>=613&&p.x<725)[self saveUserPreset];
+        if(p.x<608&&synth->loadedPatch()==(pcmSelection>=0?pcmSelection:current))auditionCommand.store(auditionPlaying.load()?-1:1);
+        else if(p.x>=613&&p.x<725&&pcmSelection<0)[self saveUserPreset];
         else if(p.x>=730&&p.x<842)[self showUserPresets:e];
         else if(p.x>=847){if(activeLibrary()){collection=-1;selectedLibraryRow=-1;category=style=0;query=@"";search.stringValue=@"";favoritesOnly=false;rebuild();chooseRow(current);}else [self toggleFavorite:current];}return;
     }
@@ -214,6 +228,7 @@ static const char *keyMap="awsedftgyhujkolp";
 }
 -(void)controlTextDidChange:(NSNotification*)n{if(n.object==search){query=[search.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];rebuild();[self setNeedsDisplay:YES];}}
 -(void)selectStyle:(NSMenuItem*)item{style=int(item.tag);rebuild();[self setNeedsDisplay:YES];}
+-(void)selectPCM:(NSMenuItem*)item{pcmSelection=int(item.tag);auditionCommand.store(-1);synth->setProgram(pcmSelection);[self setNeedsDisplay:YES];}
 -(void)selectCollection:(NSMenuItem*)item{collection=item.tag;selectedLibraryRow=-1;category=style=0;query=@"";search.stringValue=@"";favoritesOnly=false;rebuild();if(visibleCount)chooseRow(visible[0]);[self setNeedsDisplay:YES];}
 -(void)stepPreset:(int)delta{if(!visibleCount)return;int at=-1;for(int j=0;j<visibleCount;++j)if(visible[j]==(activeLibrary()?selectedLibraryRow:current)){at=j;break;}at=at<0?(delta>0?0:visibleCount-1):(at+delta+visibleCount)%visibleCount;chooseRow(visible[at]);page=at/pageSize;}
 -(void)toggleFavorite:(int)i{NSString *name=patchName(i);if([favorites containsObject:name])[favorites removeObject:name];else [favorites addObject:name];persist();int old=page;rebuild();page=std::min(old,std::max(0,(visibleCount-1)/pageSize));}
@@ -266,6 +281,7 @@ static const char *keyMap="awsedftgyhujkolp";
     }
     faces=[loaded copy];
     if(!controls||!panel||faces.count!=7){NSLog(@"Missing resources");[NSApp terminate:nil];return;}
+    NSString *support=[libraryDirectory() stringByDeletingLastPathComponent];if(support)setenv("INFINITY_EXPANSION_ROOT",support.fileSystemRepresentation,1);
     synth=std::make_unique<Infinity>();synth->setProgram(0);
     NSUserDefaults *d=NSUserDefaults.standardUserDefaults;favorites=[NSMutableSet setWithArray:[d arrayForKey:@"InfinityFavoritesV1"]?:@[]];userPresets=[[d dictionaryForKey:@"InfinityUserPresetsV1"] mutableCopy]?:[NSMutableDictionary new];loadLibraries();rebuild();
     if(synth->loadedZones()!=factoryCount*5*4){NSAlert *a=[NSAlert new];a.messageText=@"Banque sonore incomplète";[a runModal];[NSApp terminate:nil];return;}

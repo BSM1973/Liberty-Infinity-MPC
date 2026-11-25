@@ -14,6 +14,8 @@
 #include <sstream>
 #include <memory>
 #include <limits>
+#include <iomanip>
+#include <cstring>
 
 namespace hd {
 constexpr int rate=44100,frames=rate*2,zones=5,velocities=4,maxLayers=4;
@@ -59,6 +61,7 @@ struct SampleRecord {
     uint64_t offset=0; int length=frames,channels=1,sampleRate=rate,root=60,streamId=-1;
 };
 #include "StreamCache.h"
+#include "ExpansionCatalog.h"
 struct DecodedZone { std::shared_ptr<std::vector<int32_t>> pcm; SampleRecord info; };
 struct Slot {
     std::atomic<int> state{0}; // free, writing, ready, playing
@@ -67,6 +70,7 @@ struct Slot {
 };
 class Bank {
     std::string path;
+    ExpansionCatalog expansions;
     std::array<Slot,2> slots;
     std::atomic<int> request{0};
     std::atomic<int> loaded{-1};
@@ -164,13 +168,15 @@ class Bank {
     bool readSlot(Slot& s,int p){
         // The worker owns this slot exclusively. Release old data before allocating.
         s.data={};s.residentBytes=0;
-        std::FILE* f=std::fopen(path.c_str(),"rb");if(!f)return false;
+        auto* ep=expansions.preset(p);if(p>=factoryCount&&!ep)return false;
+        const auto* ex=expansions.collectionFor(p);
+        std::FILE* f=std::fopen(ex?ex->path.c_str():path.c_str(),"rb");if(!f)return false;
         constexpr size_t chunkSamples=16384;
-        bool ok=true;int count=counts[p]?counts[p]:layerCount(p);
+        bool ok=true;int count=ep?ep->layers:counts[p]?counts[p]:layerCount(p);
         try{
             std::vector<unsigned char> raw(chunkSamples*3);
             for(int l=0;l<count&&ok;++l)for(int j=0;j<zones*velocities&&ok;++j){
-                auto& dst=s.data[l][j];dst.info=record(sourceFor(p,l),j/velocities,j%velocities);
+                auto& dst=s.data[l][j];dst.info=ep?ep->records[l][j]:record(sourceFor(p,l),j/velocities,j%velocities);
                 const auto rec=dst.info;
                 for(int a=0;a<=l&&!dst.pcm;++a)for(int b=0;b<(a==l?j:zones*velocities);++b){
                     const auto& prev=s.data[a][b];
@@ -197,7 +203,7 @@ class Bank {
         while(!quit.load(std::memory_order_acquire)){
             stream.service(streamFile,streamRecords);
             const int p=request.load(std::memory_order_acquire);
-            if(p!=loaded.load(std::memory_order_acquire)){
+            if(p!=loaded.load(std::memory_order_acquire)&&available(p)){
                 bool found=false;
                 for(auto& s:slots){
                     int expected=2;
@@ -220,7 +226,7 @@ class Bank {
         if(streamFile)std::fclose(streamFile);
     }
 public:
-    explicit Bank(std::string file):path(std::move(file)){
+    explicit Bank(std::string file):path(std::move(file)),expansions(std::getenv("INFINITY_EXPANSION_ROOT")?std::getenv("INFINITY_EXPANSION_ROOT"):path.substr(0,path.find_last_of('/'))){
         std::FILE* f=std::fopen(path.c_str(),"rb");if(!f)return;
         const unsigned char expected[]={ 'L','I','N','F','H','D','0','1',100,0,0,0,5,0,0,0,4,0,0,0,0x44,0xac,0,0,0x88,0x58,1,0,24,0,0,0 };
         unsigned char header[headerSize]{};
@@ -247,11 +253,15 @@ public:
     }
     ~Bank(){quit.store(true,std::memory_order_release);if(worker.joinable())worker.join();}
     bool good()const{return valid;}
+    bool available(int p)const{return valid&&(p>=0&&p<factoryCount||expansions.preset(p)!=nullptr);}
+    const Expansion* expansion(int slot)const{return expansions.collection(slot);}
+    const ExpansionPreset* expansionPreset(int p)const{return expansions.preset(p);}
+    const Expansion* expansionFor(int p)const{return expansions.collectionFor(p);}
     int loadedPatch()const{return loaded.load(std::memory_order_acquire);}
     // Only called from process. Slot ownership prevents any concurrent vector mutation.
-    void requestPatch(int p){if(valid)request.store(p,std::memory_order_release);}
+    void requestPatch(int p){if(available(p))request.store(p,std::memory_order_release);}
     bool select(int p){
-        if(!valid)return false;
+        if(!available(p))return false;
         requestPatch(p);
         if(active>=0&&slots[active].patch==p)return false;
         for(int i=0;i<2;++i){
@@ -265,11 +275,11 @@ public:
         return false;
     }
     int sourceFor(int p,int l)const{return counts[p]?settings[p][l].source:source(p,l);}
-    float patchGain(int p)const{return gainSet[p]?patchGains[p]:1.f;}
-    bool customPatch(int p)const{return counts[p]!=0;}
-    LayerSettings layerSettings(int p,int l)const{return settings[p][l];}
-    std::array<float,maxLayers> weights(int p,int velocity,uint32_t sequence)const{return articulationWeights(settings[p],counts[p],velocity,sequence);}
-    Region region(int p,int l,int z,int v)const{return regions[sourceFor(p,l)][z*velocities+v];}
+    float patchGain(int p)const{return p>=factoryCount?1.f:gainSet[p]?patchGains[p]:1.f;}
+    bool customPatch(int p)const{return p>=factoryCount||counts[p]!=0;}
+    LayerSettings layerSettings(int p,int l)const{return p>=factoryCount?expansions.preset(p)->settings[l]:settings[p][l];}
+    std::array<float,maxLayers> weights(int p,int velocity,uint32_t sequence)const{auto* ep=expansions.preset(p);return ep?articulationWeights(ep->settings,ep->layers,velocity,sequence):articulationWeights(settings[p],counts[p],velocity,sequence);}
+    Region region(int p,int l,int z,int v)const{auto* ep=expansions.preset(p);return ep?ep->regions[l][z*velocities+v]:regions[sourceFor(p,l)][z*velocities+v];}
     int layers()const{return active>=0?slots[active].layers:0;}
     int band(double step)const{
         if(step<=1)return 0;

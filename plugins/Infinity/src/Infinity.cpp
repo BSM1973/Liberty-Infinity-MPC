@@ -50,6 +50,7 @@ class Infinity final: public mpc::Plugin {
 public:
     Infinity(): mpc::Plugin(info()), bank(mpc::contentPath("Factory.pcm")) {
         std::vector<std::string> choices; for(const auto& p:factory) choices.emplace_back(p.name);
+        for(int p=factoryCount;p<hd::totalPatches;++p)choices.push_back(hd::ExpansionCatalog::label(p));
         addParam(mpc::choiceParam("sound","Sound",choices,0));
         addParam(mpc::logParam("attack","Attack",2,2000,10,"ms",0));
         addParam(mpc::logParam("decay","Decay",5,4000,500,"ms",0));
@@ -98,7 +99,28 @@ public:
             const float cut=k==0?6500.f:11000.f+v*180;
             addProgram(q.name,{float(p),a,d,su,rel,cut,0,-9,1,0,0,10,500,75,350,1,0,100,0,0,1,14000,0,0,1,20,350,30,0,100,8000,0,1,20,20,1800,0,100,8000});
         }
+        for(int p=factoryCount;p<hd::totalPatches;++p){
+            const auto* ep=bank.expansionPreset(p);
+            const auto name=ep?hd::ExpansionCatalog::label(p)+" "+ep->name:hd::ExpansionCatalog::label(p)+" (vide)";
+            addProgram(name.c_str(),{float(p),5,600,75,350,12000,0,-9,1,0,0,10,500,75,350,1,0,100,0,0,1,14000,0,0,1,20,350,30,0,100,8000,0,1,20,20,1800,0,100,8000});
+        }
     }
+    const hd::Expansion* expansion(int slot)const{return bank.expansion(slot);}
+    const hd::ExpansionPreset* expansionPreset(int p)const{return bank.expansionPreset(p);}
+    bool formatValue(int index,float plain,std::string& out)override{
+        if(index==Sound&&int(plain)>=factoryCount){int p=int(plain);auto* ep=bank.expansionPreset(p);out=ep?ep->name:hd::ExpansionCatalog::label(p)+" (vide)";return true;}return false;
+    }
+    void saveExtraState(std::vector<uint8_t>& out)override{
+        const int p=getInt(Sound);if(p<factoryCount)return;
+        auto* ex=bank.expansionFor(p);
+        if(blockedPatch.load()==p||!ex||!bank.available(p)){out.assign(36,'!');return;}
+        out.assign(ex->id.begin(),ex->id.end());
+    }
+    void loadExtraState(const uint8_t* data,size_t n)override{
+        int p=getInt(Sound);auto* ex=bank.expansionFor(p);
+        blockedPatch.store(p>=factoryCount&&(!ex||n!=36||std::memcmp(data,ex->id.data(),36)!=0)?p:-1);
+    }
+    void parameterChanged(int index,float value)override{if(index==Sound&&int(value)!=blockedPatch.load())blockedPatch.store(-1);}
     int activeVoiceCount() const {return activeVoices.load(std::memory_order_relaxed);}
     int maxVoices() const {return voiceLimit;}
     int loadedPatch()const{return bank.loadedPatch();}
@@ -113,7 +135,10 @@ public:
     size_t streamPageBytes()const{return bank.streamPageBytes();}
     void process(mpc::ProcessContext& ctx) override {
         bank.beginBlock();
-        const int desired=std::clamp(getInt(Sound),0,patches-1);
+        const int desired=std::clamp(getInt(Sound),0,hd::totalPatches-1);
+        if(blockedPatch.load()==desired||!bank.available(desired)){
+            voices={};pending={};activeVoices.store(0,std::memory_order_relaxed);switchGain=0;for(int ch=0;ch<ctx.numOutputs;++ch)std::fill_n(ctx.outputs[ch],ctx.numFrames,0.f);return;
+        }
         if(desired!=requested){requested=desired;pending={};}
         bank.requestPatch(desired);
         if(bank.loadedPatch()!=desired && switchGain<=0.f && bank.select(desired)){voices={};roundRobin={};activeVoices.store(0,std::memory_order_relaxed);}
@@ -150,7 +175,7 @@ public:
             for(auto& v:voices) {
                 if(!v.stage) continue;
                 constexpr int start=rate*3/4,end=frames-16,xf=rate/25;
-                const bool loop=factory[v.patch].loop;
+                const bool loop=v.patch<factoryCount&&factory[v.patch].loop;
                 if(!v.custom&&!loop&&v.pos>=end){v.stage=0;continue;}
                 if(!v.custom&&loop&&v.pos>=end)v.pos=start+xf+std::fmod(v.pos-end,double(end-start-xf));
                 const int k=v.custom?0:int(v.pos);
@@ -249,10 +274,10 @@ public:
         activeVoices.store(active,std::memory_order_relaxed);
     }
 private:
-    std::atomic<int> activeVoices{0};
+    std::atomic<int> activeVoices{0},blockedPatch{-1};
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=907;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=908;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){
@@ -289,7 +314,7 @@ private:
             v->ratio[l]*=double(rec.sampleRate)/rate*std::pow(2.,(roots[z]-rec.root)/12.);
             v->region[l]=bank.region(p,l,z,v->velocityLayer);
             if(v->region[l].custom)v->custom=true;
-            else v->region[l]={rate*3/4,frames-16,factory[p].loop?rate/25:0,false};
+            else v->region[l]={rate*3/4,frames-16,p<factoryCount&&factory[p].loop?rate/25:0,false};
             weight*=bank.patchGain(p);
             v->layerLeft[l]=weight*(1-pan)*2;v->layerRight[l]=weight*pan*2;
         }
