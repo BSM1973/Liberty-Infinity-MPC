@@ -2,4 +2,7 @@ sdk/
 plugins/Infinity/build/
 plugins/Infinity/dist/
 plugins/Infinity/Content/Samples/
+plugins/Infinity/assets/
+plugins/Infinity/skins/
 __pycache__/
+dist/
