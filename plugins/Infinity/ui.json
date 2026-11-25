@@ -1,10 +1,13 @@
 {
-  "kit": "cyan",
+  "kit": {
+    "theme": "amber",
+    "accent": "ffd5b06b"
+  },
   "style": {
-    "background": "ffe2e7eb",
-    "accent": "ff278bb8",
-    "text": "ff24333e",
-    "muted": "ff657787"
+    "background": "ff101014",
+    "accent": "ffd5b06b",
+    "text": "fff9f9f9",
+    "muted": "ffdedede"
   },
   "pages": [
     {

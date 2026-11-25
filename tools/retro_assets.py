@@ -1,48 +1,117 @@
+"""Shared Black Gold panel and original hardware-style assets."""
 from pathlib import Path
-import json, math
-from PIL import Image,ImageDraw,ImageFont
+import json, math, itertools
+from PIL import Image, ImageDraw, ImageFont
 ROOT=Path(__file__).resolve().parents[1]
-P=ROOT/"plugins/Infinity"
-A=P/"assets";A.mkdir(exist_ok=True)
+P=ROOT/"plugins/Infinity"; A=P/"assets"; A.mkdir(exist_ok=True)
 L=json.loads((P/"layout.json").read_text())
 def font(n):
     for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf","/System/Library/Fonts/Supplemental/Arial Bold.ttf"):
         if Path(p).exists():return ImageFont.truetype(p,n)
-    return ImageFont.load_default()
-im=Image.new("RGB",(1280,628));d=ImageDraw.Draw(im)
+    return ImageFont.load_default(size=n)
+def lerp(a,b,t):return tuple(round(x+(y-x)*t) for x,y in zip(a,b))
+G=(202,161,85); LIGHT=(246,226,179); WHITE=(249,249,249)
+im=Image.new("RGB",(1280,628)); d=ImageDraw.Draw(im)
 for y in range(628):
-    v=int(239-28*y/628+4*math.sin(y*.06))
-    d.line((0,y,1280,y),fill=(v,min(255,v+3),min(255,v+6)))
+    v=round(13+9*(1-y/628)+1.5*math.sin(y*2.3))
+    d.line((0,y,1279,y),fill=(v,v,v+2))
+d.rounded_rectangle((2,2,1277,625),radius=8,outline=(115,88,43),width=1)
 for title,x,y,w in L["sections"]:
-    d.rounded_rectangle((x,y,x+w,y+24),radius=3,fill=(46,58,69))
-    d.text((x+8,y+3),title,font=font(15),fill="white")
-for x in (276,1004):
-    d.line((x,40,x,354),fill=(161,173,183),width=2)
-for x in (279,653,1029):
-    d.line((x,410,x,611),fill=(164,176,187),width=2)
+    bottom=359 if y<100 else 613
+    d.rounded_rectangle((x-3,y-3,x+w+3,bottom),radius=5,fill=(12,12,14),outline=(89,69,38))
+    for j in range(24):
+        v=round(33-13*j/23)
+        d.line((x,y+j,x+w,y+j),fill=(v,v,v+2))
+    d.line((x,y+24,x+w,y+24),fill=G)
+    d.text((x+9,y+3),title,font=font(15),fill=WHITE)
 x,y,w,h=L["lcd"]
-d.rounded_rectangle((x-5,y-5,x+w+5,y+h+5),radius=13,fill=(125,139,150))
-d.rounded_rectangle((x,y,x+w,y+h),radius=10,fill=(17,30,42))
-for j in range(h-22):
-    t=j/(h-22);d.line((x+12,y+11+j,x+w-12,y+11+j),fill=(int(211-70*t),int(245-45*t),int(252-25*t)))
-d.text((x+23,y+14),"LIBERTY INFINITY",font=font(22),fill=(32,67,91))
-d.line((x+20,y+47,x+w-20,y+47),fill=(65,111,141),width=2)
-d.text((x+23,y+h-35),"FACTORY LIBRARY  /  ROMPLER",font=font(16),fill=(32,67,91))
-d.text((1046,605),"LIBERTY MUSIC SOFTWARE",font=font(12),fill=(48,65,80))
+d.rounded_rectangle((x-6,y-6,x+w+6,y+h+6),radius=12,fill=(4,4,5),outline=G,width=2)
+d.rounded_rectangle((x,y,x+w,y+h),radius=8,fill=(12,16,22),outline=(97,75,43))
+for j in range(h-20):
+    d.line((x+10,y+10+j,x+w-10,y+10+j),fill=lerp((24,29,37),(9,12,18),j/(h-20)))
+d.text((x+23,y+12),"LIBERTY INFINITY",font=font(22),fill=WHITE)
+d.text((x+w-177,y+18),"BLACK GOLD",font=font(15),fill=G)
+d.line((x+20,y+47,x+w-20,y+47),fill=(137,107,54))
+d.line((x+210,y+58,x+210,y+253),fill=(74,61,42))
+d.line((x+20,y+260,x+w-20,y+260),fill=(100,78,44))
+d.text((1046,596),"LIBERTY MUSIC SOFTWARE",font=font(11),fill=WHITE)
 im.save(A/"retro.png")
-# Original silver knob filmstrip with 127 vertical frames.
-N=127;S=60; strip=Image.new("RGBA",(S,S*N))
-for i in range(N):
-    k=Image.new("RGBA",(S,S));q=ImageDraw.Draw(k)
-    q.ellipse((4,5,56,57),fill=(77,90,101,85))
+# Anti-aliased original brass knobs. Gold machined rim, dark radial brushing,
+# satin metallic cap, engraved pointer and a separate arc of travel.
+S=64;N=127;Q=3;D=S*Q
+strip=Image.new("RGBA",(S,S*N))
+def angle(x,y):return (math.degrees(math.atan2(y,x))+360)%360
+def knob(t):
+    k=Image.new("RGBA",(D,D)); pix=k.load()
+    for y in range(D):
+        for x in range(D):
+            dx=(x+.5)/Q-32;dy=(y+.5)/Q-31; r=math.hypot(dx,dy); a=math.atan2(dy,dx)
+            if r>30.5:continue
+            if r>27.4:
+                col=(14,14,15,255) if r<29 else (0,0,0,110)
+            elif r>23:
+                sheen=.50+.24*math.sin(a*2+.8)+.16*math.sin(a*5-.4)
+                col=(*lerp((104,72,29),(247,218,148),max(0,min(1,sheen))),255)
+            elif r>21.5:col=(40,32,20,255)
+            else:
+                sheen=.50+.30*math.cos(a+1.15)+.07*math.sin(r*19)
+                v=round(18+28*max(0,min(1,sheen)))
+                col=(v,v,v+2,255)
+            pix[x,y]=col
+    q=ImageDraw.Draw(k)
     for j in range(11):
-        a=math.radians(135+j*27);cx=30+25*math.cos(a);cy=30+25*math.sin(a)
-        q.ellipse((cx-1.4,cy-1.4,cx+1.4,cy+1.4),fill=(46,125,173,255) if j<=i*10/(N-1) else (91,103,114,255))
-    q.ellipse((9,9,51,51),fill=(101,115,126,255))
-    for y in range(11,49):
-        dx=math.sqrt(max(0,19**2-(y-30)**2));v=int(244-76*(y-11)/38)
-        q.line((30-dx,y,30+dx,y),fill=(v,min(255,v+3),min(255,v+6),255))
-    a=math.radians(135+270*i/(N-1))
-    q.line((30+10*math.cos(a),30+10*math.sin(a),30+19*math.cos(a),30+19*math.sin(a)),fill=(35,49,61,255),width=3)
-    strip.paste(k,(0,S*i))
-strip.save(A/"silver.png")
+        a=math.radians(135+j*27)
+        cx=(32+30*math.cos(a))*Q;cy=(31+30*math.sin(a))*Q
+        rr=1.05*Q
+        q.ellipse((cx-rr,cy-rr,cx+rr,cy+rr),fill=LIGHT if j<=t*10 else (99,86,62))
+    a=math.radians(135+270*t)
+    q.line(((32+8*math.cos(a))*Q,(31+8*math.sin(a))*Q,(32+20*math.cos(a))*Q,(31+20*math.sin(a))*Q),fill=LIGHT,width=3*Q)
+    return k.resize((S,S),Image.Resampling.LANCZOS)
+for i in range(N):strip.paste(knob(i/(N-1)),(0,S*i))
+strip.save(A/"gold_knob.png")
+def hardware(on):
+    k=Image.new("RGBA",(52,48));q=ImageDraw.Draw(k)
+    q.rounded_rectangle((2,3,50,47),radius=5,fill=(0,0,0,170))
+    q.rounded_rectangle((2,1,49,43),radius=4,fill=(46,35,20),outline=G if on else (112,89,50),width=2)
+    for j in range(3,41):
+        q.line((5,j,46,j),fill=lerp((45,45,48),(15,15,17),j/42))
+    q.rounded_rectangle((9,7,42,35),radius=3,outline=(71,67,58),width=1)
+    if on:q.rounded_rectangle((17,11,34,17),radius=3,fill=(117,75,20))
+    q.rounded_rectangle((18,12,33,15),radius=1,fill=(255,218,137) if on else (57,49,36))
+    q.line((20,28,31,28),fill=WHITE if on else (156,150,140),width=2)
+    return k
+hardware(True).save(A/"power_on.png");hardware(False).save(A/"power_off.png")
+sel=Image.new("RGBA",(72,42));q=ImageDraw.Draw(sel)
+q.rounded_rectangle((1,1,70,39),radius=4,fill=(25,25,28),outline=G,width=1)
+q.line((5,4,66,4),fill=(90,75,48));q.polygon([(60,14),(66,14),(63,19)],fill=LIGHT)
+sel.save(A/"selector.png")
+# Validate the exact shared slot geometry, including separation and screen bounds.
+C=L["controls"]
+assert len(C)==39 and len({c["i"] for c in C})==39
+for c in C:
+    x,y,w,h=(c[k] for k in ("x","y","w","h"))
+    assert x>=0 and y>=0 and x+w<=1280 and y+h<=628
+    if c["kind"]!="browser":assert w>=72 and h>=76
+for a,b in itertools.combinations(C,2):
+    assert a["x"]+a["w"]<=b["x"] or b["x"]+b["w"]<=a["x"] or a["y"]+a["h"]<=b["y"] or b["y"]+b["h"]<=a["y"],(a,b)
+# Static design preview, not a screenshot of the running host.
+preview=im.convert("RGBA");p=ImageDraw.Draw(preview)
+for c in C:
+    if c["kind"]=="browser":continue
+    x,y,w,h=(c[k] for k in ("x","y","w","h"))
+    if c["kind"]=="toggle": asset=hardware(c["i"] in (8,15))
+    elif c["kind"]=="selector":asset=sel
+    else:asset=strip.crop((0,60*S,S,61*S)).resize((50,50),Image.Resampling.LANCZOS)
+    preview.alpha_composite(asset,(x+(w-asset.width)//2,y))
+    p.text((x+w/2,y+51),c["name"],font=font(12),fill=WHITE,anchor="mt")
+    p.text((x+w/2,y+65),"ON" if c["kind"]=="toggle" and c["i"] in (8,15) else "OFF" if c["kind"]=="toggle" else "50 %",font=font(10),fill=WHITE,anchor="mt")
+p.text((310,100),"CATEGORY",font=font(14),fill=G)
+p.text((510,100),"FACTORY PRESETS",font=font(14),fill=G)
+for i,n in enumerate(("All","Bass","Keys","Pads","Plucks","Leads","Pianos","Strings","Brass","Arpeggios","Bells & Mallets","Atmospheres","Synth & FX")):
+    p.text((310,124+i*13),n,font=font(11),fill=WHITE)
+p.rectangle((500,124,960,145),fill=(86,64,30))
+for i,n in enumerate(("BA Deep Bass","KY Crystal Keys","PD Velvet Pad","PL Silver Pluck","BA Analog Titan","BA Berlin Bass","BA Submarine")):
+    p.text((508,125+i*23),n,font=font(15),fill=WHITE)
+p.text((640,309),"BA Deep Bass",font=font(16),fill=WHITE,anchor="mt")
+preview.convert("RGB").save(A/"black-gold-preview.png")
+print("Black Gold assets generated; 39 unique slots, no overlapping slot bounds")

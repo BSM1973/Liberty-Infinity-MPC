@@ -29,8 +29,13 @@ jobs:
       - run: python sdk/tools/package.py plugins/Infinity
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-MPC-v0.3.0-EXPERIMENTAL
+          name: Liberty-Infinity-MPC-v0.4.0-EXPERIMENTAL
           path: plugins/Infinity/dist/*.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Liberty-Infinity-Black-Gold-Design-Preview
+          path: plugins/Infinity/assets/black-gold-preview.png
           if-no-files-found: error
   mac-test:
     runs-on: macos-15
@@ -50,6 +55,6 @@ jobs:
       - run: bash macos/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-Mac-Test-v0.3.0-arm64
+          name: Liberty-Infinity-Mac-Test-v0.4.0-arm64
           path: dist/*.zip
           if-no-files-found: error

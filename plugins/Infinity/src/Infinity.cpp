@@ -189,7 +189,7 @@ public:
 private:
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=300;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=400;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void midi(const mpc::MidiEvent& e){
         if(e.isNoteOn()){
