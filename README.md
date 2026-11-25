@@ -1,4 +1,4 @@
-# Liberty Infinity — MPC ROMpler v0.8.1
+# Liberty Infinity — MPC ROMpler v0.9.0
 
 Plugin principal MPC ARM32/ARM64, MPC OS 3.10.1+ External Plugin Support bêta. Application macOS ARM64 de test, même DSP et banque. Pas un AU.
 
@@ -35,3 +35,7 @@ Offline importer `tools/import_multisamples.py` (Python, numpy, scipy) creates a
 ## Professional ROMpler (v0.8.1)
 
 Imported source regions now apply even when a preset retains factory layer settings (no L record). Mixed custom and factory layers retain their own playback regions, and factory gain/pan/detune remain unchanged when no layer override is present. The bank reader decodes PCM24 in chunks of 16,384 samples (48 KiB temporary buffer instead of 5,292,000 bytes per source); the decoded caches are unchanged, and this theoretical scratch reduction is not an on-device RAM measurement. Added native regression cases for imported one-shots and loops without explicit patch overrides. The fixed-grid offline importer, two-second mono zone limit, factory names and Black Gold UI remain unchanged. No new acoustic recordings or device/listening validation are included.
+
+## Multisample Studio v0.9.0 (first graphical stage)
+
+Mac menu Multisample > Ouvrir Multisample Studio (Cmd-M). Separate dark window, WAV drag/drop and file chooser, four independent source layers, 1024-bin min/max waveform (up to 120 s for editor input), draggable loop in original frames, numeric MIDI key/velocity ranges with keyboard-range display, source preview via AVAudioPlayer, root -1 for auto detection at export. Mute/Solo affect the exported patch layer list (not the raw sample preview); save/open Studio JSON preserves all four layers and absolute WAV references. Export uses a user-selected Python 3 executable with numpy/scipy installed (e.g. a virtual environment), the bundled importer and the original factory bank; choose an empty writable destination. No modification to the signed app or factory bank. Copy both output files to the MPC Content folder with the host stopped and originals backed up. Source replacement can affect other factory presets; the current format still has five roots and four velocity bins, mono PCM24, 2-second zones, and 100 fixed preset names. No native MPC editor, arbitrary runtime mapping, stereo bank playback, longer runtime zones, acoustic recordings, or on-device sound/CPU validation in this stage. The waveform editor is not a sample-level zoom editor. UI requires visual testing on macOS.

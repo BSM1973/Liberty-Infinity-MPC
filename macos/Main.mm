@@ -75,6 +75,7 @@ static void browserButton(NSString *title, NSRect r, bool active=false){
     NSBezierPath *p=[NSBezierPath bezierPathWithRoundedRect:r xRadius:3 yRadius:3];[(active?selection():[NSColor colorWithWhite:.10 alpha:1])setFill];[p fill];[gold() setStroke];p.lineWidth=.7;[p stroke];
     text(title,NSInsetRect(r,3,2),11,ink(),true);
 }
+#include "MultisampleStudio.h"
 static NSRect bounds(NSDictionary *c){return NSMakeRect([c[@"x"] doubleValue],[c[@"y"] doubleValue],[c[@"w"] doubleValue],[c[@"h"] doubleValue]);}
 static void choose(int p){if(p<0||p>=factoryCount)return;auditionCommand.store(-1);current=p;userName=nil;synth->setProgram(p);}
 static const char *keyMap="awsedftgyhujkolp";
@@ -274,10 +275,14 @@ static const char *keyMap="awsedftgyhujkolp";
     NSError *error=nil;if(![audio startAndReturnError:&error]){NSAlert *a=[NSAlert new];a.messageText=@"Audio indisponible";a.informativeText=error.localizedDescription?:@"Erreur audio";[a runModal];[NSApp terminate:nil];return;}
     NSRect screen=NSScreen.mainScreen.visibleFrame;CGFloat scale=std::min(CGFloat(1),std::min((screen.size.width-24)/1280,(screen.size.height-48)/720));
     self.window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,1280*scale,720*scale) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskMiniaturizable backing:NSBackingStoreBuffered defer:NO];
-    self.window.title=@"Liberty Infinity | Black Gold | Factory Browser Pro";Panel *v=[[Panel alloc]initWithFrame:NSMakeRect(0,0,1280*scale,720*scale)];self.window.contentView=v;[v setBounds:NSMakeRect(0,0,1280,720)];[self.window center];[self.window makeKeyAndOrderFront:nil];[self.window makeFirstResponder:v];
+    self.window.title=@"Liberty Infinity | Black Gold | Multisample Studio";Panel *v=[[Panel alloc]initWithFrame:NSMakeRect(0,0,1280*scale,720*scale)];self.window.contentView=v;[v setBounds:NSMakeRect(0,0,1280,720)];[self.window center];[self.window makeKeyAndOrderFront:nil];[self.window makeFirstResponder:v];
     self.timer=[NSTimer scheduledTimerWithTimeInterval:1./30 repeats:YES block:^(NSTimer *t){(void)t;[v setNeedsDisplay:YES];}];
+    NSMenu *bar=[NSMenu new];NSMenuItem *appItem=[NSMenuItem new];[bar addItem:appItem];NSMenu *appMenu=[NSMenu new];[appItem setSubmenu:appMenu];[appMenu addItemWithTitle:@"Quitter Liberty Infinity" action:@selector(terminate:) keyEquivalent:@"q"];
+    NSMenuItem *studioItem=[[NSMenuItem alloc]initWithTitle:@"Multisample" action:nil keyEquivalent:@""];[bar addItem:studioItem];NSMenu *studioMenu=[[NSMenu alloc]initWithTitle:@"Multisample"];studioItem.submenu=studioMenu;
+    NSMenuItem *open=[[NSMenuItem alloc]initWithTitle:@"Ouvrir Multisample Studio" action:@selector(openStudio:) keyEquivalent:@"m"];open.target=self;[studioMenu addItem:open];NSApp.mainMenu=bar;
     [NSApp activateIgnoringOtherApps:YES];
 }
+-(void)openStudio:(id)sender{(void)sender;showInfinityStudio();}
 -(void)applicationDidResignActive:(NSNotification*)n{(void)n;for(auto &v:notes)v.store(0);}
 -(BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)a{(void)a;return YES;}
 -(void)applicationWillTerminate:(NSNotification*)n{(void)n;[self.timer invalidate];[audio stop];if(midiPort)MIDIPortDispose(midiPort);if(midiClient)MIDIClientDispose(midiClient);}
