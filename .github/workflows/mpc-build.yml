@@ -27,6 +27,8 @@ jobs:
       - run: python tools/retro_assets.py
       - run: python tools/enable_sdk_threads.py
       - run: python sdk/tools/build.py plugins/Infinity --target native
+      - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/personal_map.cpp -o /tmp/infinity-map -ldl
+      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-map | tee personal-map-validation.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/factory.cpp -o /tmp/infinity-test -ldl
       - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-test | tee factory-validation.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/switching.cpp -o /tmp/infinity-switch -ldl
@@ -53,6 +55,7 @@ jobs:
         with:
           name: Liberty-Infinity-v0.8.0-Factory-and-Performance-Validation
           path: |
+            personal-map-validation.txt
             factory-validation.txt
             switching-validation.txt
             performance-v06.csv
