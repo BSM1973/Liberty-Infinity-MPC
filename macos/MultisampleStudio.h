@@ -1,4 +1,5 @@
 #pragma once
+#include "NativeBankExport.h"
 // Included by Main.mm after the shared colours. Offline editor, never called from render().
 @interface InfinityWave : NSView
 @property(nonatomic) AVAudioFramePosition total;
@@ -88,7 +89,7 @@
     InfinityKeys *keys;
     NSMutableArray<NSMutableDictionary*> *layers;
     AVAudioPlayer *preview;
-    NSTask *exportTask;
+    BOOL exporting;
     NSInteger selectedLayer,selectedZone;
 }
 -(BOOL)isFlipped{return YES;}
@@ -234,35 +235,24 @@
     layers=doc[@"layers"];patch.integerValue=[doc[@"patch"] integerValue];selectedLayer=0;[layerMenu selectItemAtIndex:0];[self showLayer];
 }
 -(void)exportBank:(id)sender{
-    (void)sender;if(exportTask.running){[self message:@"Export déjà en cours."];return;}
+    (void)sender;if(exporting){[self message:@"Export déjà en cours."];return;}
     NSDictionary *manifest=[self manifest];if(!manifest)return;
-    NSOpenPanel *py=[NSOpenPanel openPanel];py.message=@"Sélectionnez un exécutable Python 3 avec numpy et scipy installés.";py.showsHiddenFiles=YES;
-    if([py runModal]!=NSModalResponseOK)return;
-    NSOpenPanel *dest=[NSOpenPanel openPanel];dest.canChooseFiles=NO;dest.canChooseDirectories=YES;dest.canCreateDirectories=YES;dest.message=@"Dossier de destination vide pour Factory.pcm et Factory.pcm.map";
+    NSData *snapshot=[NSJSONSerialization dataWithJSONObject:manifest options:0 error:nil];
+    if(!snapshot){[self message:@"Projet invalide."];return;}
+    NSDictionary *immutable=[NSJSONSerialization JSONObjectWithData:snapshot options:0 error:nil];
+    NSOpenPanel *dest=[NSOpenPanel openPanel];dest.canChooseFiles=NO;dest.canChooseDirectories=YES;dest.canCreateDirectories=YES;
+    dest.message=@"Dossier de destination vide pour Factory.pcm et Factory.pcm.map";
     if([dest runModal]!=NSModalResponseOK)return;
-    NSString *out=[dest.URL.path stringByAppendingPathComponent:@"Factory.pcm"];
-    NSString *res=NSBundle.mainBundle.resourcePath;NSString *script=[res stringByAppendingPathComponent:@"import_multisamples.py"];
-    NSString *temp=[NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];NSError *err=nil;
-    if(![NSFileManager.defaultManager createDirectoryAtPath:temp withIntermediateDirectories:NO attributes:nil error:&err]){[self message:err.localizedDescription];return;}
-    NSString *mf=[temp stringByAppendingPathComponent:@"bank.json"],*log=[temp stringByAppendingPathComponent:@"export.log"];
-    NSData *data=[NSJSONSerialization dataWithJSONObject:manifest options:0 error:&err];
-    if(!data||![data writeToFile:mf options:NSDataWritingAtomic error:&err]||![NSFileManager.defaultManager createFileAtPath:log contents:nil attributes:nil]){
-        [self message:err.localizedDescription?:@"Écriture impossible."];[NSFileManager.defaultManager removeItemAtPath:temp error:nil];return;
-    }
-    NSFileHandle *handle=[NSFileHandle fileHandleForWritingAtPath:log];if(!handle){[NSFileManager.defaultManager removeItemAtPath:temp error:nil];[self message:@"Journal indisponible."];return;}
-    exportTask=[NSTask new];exportTask.executableURL=py.URL;exportTask.arguments=@[script,@"--base",[res stringByAppendingPathComponent:@"Content/Factory.pcm"],@"--manifest",mf,@"--out",out];
-    exportTask.standardOutput=handle;exportTask.standardError=handle;
+    NSString *folder=dest.URL.path,*base=[NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"Content/Factory.pcm"];
+    exporting=YES;[self message:@"Export stéréo HD en cours…"];
     __weak InfinityStudio *weakSelf=self;
-    exportTask.terminationHandler=^(NSTask *task){
-        int code=task.terminationStatus;[handle closeFile];NSString *details=[NSString stringWithContentsOfFile:log encoding:NSUTF8StringEncoding error:nil]?:@"";
-        [NSFileManager.defaultManager removeItemAtPath:temp error:nil];
-        dispatch_async(dispatch_get_main_queue(),^{InfinityStudio *s=weakSelf;if(!s)return;
-            if(code==0)[s message:@"Export réussi : Factory.pcm et Factory.pcm.map. Arrêtez le MPC avant installation."];
-            else {NSAlert *a=[NSAlert new];a.messageText=@"Export impossible";a.informativeText=details.length>1800?[details substringFromIndex:details.length-1800]:details;[a runModal];[s message:@"Export échoué. Aucun remplacement de la banque d’usine."];}
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{@autoreleasepool{
+        NSString *failure=studioHD::exportBank(immutable,base,folder);
+        dispatch_async(dispatch_get_main_queue(),^{InfinityStudio *s=weakSelf;if(!s)return;s->exporting=NO;
+            if(!failure)[s message:@"Export HD réussi. Arrêtez le MPC avant installation des deux fichiers."];
+            else { [s message:@"Export échoué. Banque Factory intacte."];NSAlert *a=[NSAlert new];a.messageText=@"Export impossible";a.informativeText=failure;[a runModal];}
         });
-    };
-    if(![exportTask launchAndReturnError:&err]){[handle closeFile];[NSFileManager.defaultManager removeItemAtPath:temp error:nil];[self message:err.localizedDescription];return;}
-    [self message:@"Export en cours… Le moteur audio reste indépendant."];
+    }});
 }
 @end
 

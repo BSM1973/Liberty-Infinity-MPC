@@ -34,7 +34,7 @@ struct Voice {
     int note=-1, patch=0, zone=0, channel=0;
     double pos=0, step=1;
     int velocityLayer=0,layers=1; bool custom=false; std::array<hd::Region,4> region{}; std::array<double,4> ratio{}; std::array<double,4> layerPos{},layerStep{};
-    std::array<int,4> layerBand{};
+    std::array<int,4> layerBand{},layerChannels{};
     std::array<float,4> layerLeft{},layerRight{};
     float vel=0, env=0, l=0, r=0, releaseStep=0;
     int stage=0;
@@ -158,12 +158,15 @@ public:
                     if(pos>=le)continue;
                     any=true;
                     int band=v.layerBand[layer];
-                    float value=bank.sample(layer,v.zone,v.velocityLayer,pos,band);
+                    float left=bank.sample(layer,v.zone,v.velocityLayer,pos,band);
+                    float right=v.layerChannels[layer]==2?bank.sample(layer,v.zone,v.velocityLayer,pos,band,1):left;
                     if(looping&&pos>=le-lx){float w=float((pos-(le-lx))/lx);w=w*w*(3-2*w);
-                        value=value*(1-w)+bank.sample(layer,v.zone,v.velocityLayer,ls+pos-(le-lx),band)*w;}
-                    if(v.custom&&!looping)value*=std::min(1.f,float(le-pos)/128.f);
+                        double wrap=ls+pos-(le-lx);float a=bank.sample(layer,v.zone,v.velocityLayer,wrap,band);
+                        float b=v.layerChannels[layer]==2?bank.sample(layer,v.zone,v.velocityLayer,wrap,band,1):a;
+                        left=left*(1-w)+a*w;right=right*(1-w)+b*w;}
+                    if(v.custom&&!looping){float fade=std::min(1.f,float(le-pos)/128.f);left*=fade;right*=fade;}
                     pos+=step;
-                    x+=value*v.layerLeft[layer];y+=value*v.layerRight[layer];
+                    x+=left*v.layerLeft[layer];y+=right*v.layerRight[layer];
                 }
                 if(v.custom&&!any){v.stage=0;continue;}
                 v.pos+=v.step*bendRatio;
@@ -226,7 +229,7 @@ private:
     std::atomic<int> activeVoices{0};
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=900;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=901;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){
@@ -255,6 +258,9 @@ private:
                 pan=(s.pan+1.f)*.5f;weight=s.gain;
                 v->ratio[l]=std::pow(2.,s.cents/1200.);
             }
+            const auto rec=bank.sampleRecord(l,z,v->velocityLayer);
+            v->layerChannels[l]=rec.channels;
+            v->ratio[l]*=double(rec.sampleRate)/rate*std::pow(2.,(roots[z]-rec.root)/12.);
             v->region[l]=bank.region(p,l,z,v->velocityLayer);
             if(v->region[l].custom)v->custom=true;
             else v->region[l]={rate*3/4,frames-16,factory[p].loop?rate/25:0,false};
