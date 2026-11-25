@@ -16,6 +16,7 @@
 #include <limits>
 #include <iomanip>
 #include <cstring>
+#include <cstdlib>
 
 namespace hd {
 constexpr int rate=44100,frames=rate*2,zones=5,velocities=4,maxLayers=4;
@@ -253,7 +254,7 @@ public:
     }
     ~Bank(){quit.store(true,std::memory_order_release);if(worker.joinable())worker.join();}
     bool good()const{return valid;}
-    bool available(int p)const{return valid&&(p>=0&&p<factoryCount||expansions.preset(p)!=nullptr);}
+    bool available(int p)const{return valid&&((p>=0&&p<factoryCount)||expansions.preset(p)!=nullptr);}
     const Expansion* expansion(int slot)const{return expansions.collection(slot);}
     const ExpansionPreset* expansionPreset(int p)const{return expansions.preset(p);}
     const Expansion* expansionFor(int p)const{return expansions.collectionFor(p);}

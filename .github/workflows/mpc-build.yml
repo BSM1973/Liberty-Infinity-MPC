@@ -22,6 +22,7 @@ jobs:
           path: sdk
       - run: pip install pillow numpy scipy
       - run: python tools/test_multisamples.py
+      - run: set -o pipefail; python tools/test_expansion_pack.py | tee expansion-authoring.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/expansion.cpp -o /tmp/infinity-expansion -ldl
       - run: set -o pipefail; /tmp/infinity-expansion | tee expansion-validation.txt
       - run: python tools/qc_ui.py | tee ui-static-validation.txt
@@ -87,6 +88,7 @@ jobs:
           path: |
             stereo-validation.txt
             expansion-validation.txt
+            expansion-authoring.txt
             streaming-60s.csv
             ui-static-validation.txt
             acoustic-validation.txt
