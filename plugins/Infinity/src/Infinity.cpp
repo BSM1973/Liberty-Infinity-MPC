@@ -4,10 +4,11 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
+#include "Factory.h"
 
 namespace {
 constexpr int roots[]={36,48,60,72,84};
-constexpr int patches=4, zones=5, rate=24000, frames=rate*3;
+constexpr int patches=factoryCount, zones=5, rate=24000, frames=rate*2;
 struct SVF {
     float s1=0,s2=0;
     float run(float x,float g,float k,int type) {
@@ -34,7 +35,8 @@ enum Param { Sound, Attack, Decay, Sustain, Release, Cutoff, Pan, Volume, P_filt
 class Infinity final: public mpc::Plugin {
 public:
     Infinity(): mpc::Plugin(info()) {
-        addParam(mpc::choiceParam("sound","Sound",{"Deep Bass","Crystal Keys","Velvet Pad","Silver Pluck"},0));
+        std::vector<std::string> choices; for(const auto& p:factory) choices.emplace_back(p.name);
+        addParam(mpc::choiceParam("sound","Sound",choices,0));
         addParam(mpc::logParam("attack","Attack",2,2000,10,"ms",0));
         addParam(mpc::logParam("decay","Decay",5,4000,500,"ms",0));
         addParam(mpc::floatParam("sustain","Sustain",0,100,75,"%",0));
@@ -73,10 +75,15 @@ public:
         addParam(mpc::floatParam("revmod","Rev Mod",0,100,0,"%",0));
         addParam(mpc::logParam("revlo","Rev Lo",20,4000,100,"Hz",0));
         addParam(mpc::logParam("revhi","Rev Hi",500,18000,8000,"Hz",0));
-        addProgram("BA Deep Bass",{0,8,550,80,250,6000,0,-9,1,0,0,10,500,75,350,1,0,100,0,0,1,14000,0,0,1,20,350,30,0,100,8000,0,1,20,20,1800,0,100,8000});
-        addProgram("KY Crystal Keys",{1,4,650,45,450,15000,0,-9,1,0,0,10,500,75,350,1,0,100,0,0,1,14000,0,0,1,20,350,30,0,100,8000,0,1,20,20,1800,0,100,8000});
-        addProgram("PD Velvet Pad",{2,350,1000,90,800,9000,0,-9,1,0,0,10,500,75,350,1,0,100,0,0,1,14000,0,0,1,20,350,30,0,100,8000,0,1,20,20,1800,0,100,8000});
-        addProgram("PL Silver Pluck",{3,3,180,20,180,14000,0,-9,1,0,0,10,500,75,350,1,0,100,0,0,1,14000,0,0,1,20,350,30,0,100,8000,0,1,20,20,1800,0,100,8000});
+        for(int p=0;p<patches;++p){
+            const auto& q=factory[p];const int k=q.kind,v=q.variant;
+            const float a=k==2||k==10?220.f+v*20:k==6?85.f:5.f;
+            const float d=k==3||k==9?200.f+v*25:600.f+v*30;
+            const float su=q.loop?85.f:k==1||k==5?45.f:18.f;
+            const float rel=k==2||k==10?850.f:240.f+v*15;
+            const float cut=k==0?6500.f:11000.f+v*180;
+            addProgram(q.name,{float(p),a,d,su,rel,cut,0,-9,1,0,0,10,500,75,350,1,0,100,0,0,1,14000,0,0,1,20,350,30,0,100,8000,0,1,20,20,1800,0,100,8000});
+        }
         for(int p=0;p<patches;++p) for(int z=0;z<zones;++z) {
             std::vector<uint8_t> bytes;
             auto name=std::to_string(p)+"_"+std::to_string(roots[z])+".pcm";
@@ -86,10 +93,11 @@ public:
             for(size_t i=0;i<dst.size();++i) {
                 int x=int(bytes[i*2]) | (int(bytes[i*2+1])<<8);
                 if(x>=32768) x-=65536;
-                dst[i]=float(x)/32768.f;
+                dst[i]=static_cast<int16_t>(x);
             }
         }
     }
+    int loadedZones() const {int n=0;for(const auto& p:bank)for(const auto& z:p)n+=!z.empty();return n;}
     void prepare(double sampleRate,int) override { sr=std::clamp(sampleRate,8000.0,192000.0); for(auto& b:lines)b.assign(size_t(sr*2)+4,0); reset(); }
     void reset() override { voices={}; pedal=false; bend=0; bendRatio=1; counter=0; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
     void process(mpc::ProcessContext& ctx) override {
@@ -119,16 +127,20 @@ public:
             for(auto& v:voices) {
                 if(!v.stage) continue;
                 const auto& pcm=bank[v.patch][v.zone];
+                constexpr int start=rate*3/4, end=frames-2, xf=768;
+                const bool loop=factory[v.patch].loop;
+                if(loop&&v.pos>=end)v.pos=start+xf+std::fmod(v.pos-end,double(end-start-xf));
                 if(pcm.empty() || v.pos>=frames-1) { v.stage=0; continue; }
-                const int k=int(v.pos); const float f=float(v.pos-k);
-                const float x=pcm[2*k]+f*(pcm[2*k+2]-pcm[2*k]);
-                const float y=pcm[2*k+1]+f*(pcm[2*k+3]-pcm[2*k+1]);
+                const int k=int(v.pos);
+                auto sample=[&](double pos,int ch){int a=int(pos);float b=float(pos-a);return (pcm[2*a+ch]+b*(int(pcm[2*a+2+ch])-int(pcm[2*a+ch])))/32768.f;};
+                float x=sample(v.pos,0),y=sample(v.pos,1);
+                if(loop&&v.pos>=end-xf){const float w=float((v.pos-(end-xf))/xf);const double other=start+v.pos-(end-xf);x=x*(1-w)+sample(other,0)*w;y=y*(1-w)+sample(other,1)*w;}
                 v.pos+=v.step*bendRatio;
                 if(v.stage==1) {v.env=std::min(1.f,v.env+a);if(v.env>=1) v.stage=2;}
                 else if(v.stage==2) {v.env=std::max(s,v.env-d);if(v.env<=s)v.stage=3;}
                 else if(v.stage==3) v.env=s;
                 else {if(v.releaseStep==0) v.releaseStep=v.env/releaseFrames;v.env-=v.releaseStep;if(v.env<=0){v.stage=0;continue;}}
-                const float fade=std::min(1.f,float(frames-1-k)/128.f);
+                const float fade=loop?1.f:std::min(1.f,float(frames-1-k)/128.f);
                 if(v.stage==4&&v.fs!=4){v.fs=4;v.fr=v.fe/frel;}
                 if(v.fs==1){v.fe=std::min(1.f,v.fe+fa);if(v.fe>=1)v.fs=2;}
                 else if(v.fs==2){v.fe=std::max(fsus,v.fe-fd);if(v.fe<=fsus)v.fs=3;}
@@ -177,7 +189,7 @@ public:
 private:
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=200;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=300;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void midi(const mpc::MidiEvent& e){
         if(e.isNoteOn()){
@@ -209,7 +221,7 @@ private:
     std::array<std::array<SVF,2>,2> master{};
     std::array<float,4> low{},high{};
     std::array<std::vector<float>,6> lines;size_t ix=0;float phase=0;
-    std::array<std::array<std::vector<float>,zones>,patches> bank;
+    std::array<std::array<std::vector<int16_t>,zones>,patches> bank;
     std::array<Voice,32> voices{};
     double sr=44100,bendRatio=1;
     int bend=0;bool pedal=false;uint64_t counter=0;float gain=0;

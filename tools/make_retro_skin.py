@@ -21,9 +21,9 @@ for c in L["controls"]:
     i,x,y,w,h=[c[k] for k in ("i","x","y","w","h")]
     p=by[i]; name="retro"+str(i)
     if i==0:
-        parts=[label("hint","FACTORY PRESETS — DOUBLE TAP TO SELECT",rect(5,3,w-10,30),size=18),
+        parts=[label("hint","FACTORY PRESETS - DOUBLE TAP TO SELECT",rect(5,3,w-10,30),size=18),
                g.entry("current","Label",g.label_data("Value","ff224966",35,"horizontallyCentred verticallyCentred"),rect(10,40,w-20,95),"No","Show","Always"),
-               label("categories","BASS  /  KEYS  /  PAD  /  PLUCK",rect(10,150,w-20,42),size=20)]
+               label("categories","100 FACTORY PRESETS / 12 CATEGORIES",rect(10,150,w-20,42),size=20)]
         actions=g.control_actions("menu overlay")
     else:
         parts=[g.entry("knob","Knob",g.knob_filmstrip_data("silver.png",127,"Vertical"),rect((w-52)//2,0,52,52),"No","Show","Always"),

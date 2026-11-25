@@ -18,16 +18,18 @@ jobs:
           repository: inmusic-software/mpc-plugin-builder-sdk
           ref: e78bad508a305a92443758eb2bc8b428e9e7a687
           path: sdk
-      - run: pip install pillow
+      - run: pip install pillow numpy
       - run: python tools/generate_samples.py
       - run: python tools/retro_assets.py
       - run: python sdk/tools/build.py plugins/Infinity --target native
+      - run: c++ -std=c++17 -O2 -I sdk/framework tests/factory.cpp -o /tmp/infinity-test -ldl
+      - run: MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-test
       - run: python tools/make_retro_skin.py
       - run: python sdk/tools/build.py plugins/Infinity
       - run: python sdk/tools/package.py plugins/Infinity
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-MPC-v0.2.0-EXPERIMENTAL
+          name: Liberty-Infinity-MPC-v0.3.0-EXPERIMENTAL
           path: plugins/Infinity/dist/*.zip
           if-no-files-found: error
   mac-test:
@@ -42,12 +44,12 @@ jobs:
           repository: inmusic-software/mpc-plugin-builder-sdk
           ref: e78bad508a305a92443758eb2bc8b428e9e7a687
           path: sdk
-      - run: pip install pillow
+      - run: pip install pillow numpy
       - run: python tools/generate_samples.py
       - run: python tools/retro_assets.py
       - run: bash macos/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-Mac-Test-arm64
+          name: Liberty-Infinity-Mac-Test-v0.3.0-arm64
           path: dist/*.zip
           if-no-files-found: error

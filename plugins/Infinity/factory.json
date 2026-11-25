@@ -1,0 +1,702 @@
+[
+  {
+    "name": "BA Deep Bass",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 0,
+    "loop": true
+  },
+  {
+    "name": "KY Crystal Keys",
+    "category": "Keys",
+    "kind": 1,
+    "variant": 0,
+    "loop": false
+  },
+  {
+    "name": "PD Velvet Pad",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 0,
+    "loop": true
+  },
+  {
+    "name": "PL Silver Pluck",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 0,
+    "loop": false
+  },
+  {
+    "name": "BA Analog Titan",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 1,
+    "loop": true
+  },
+  {
+    "name": "BA Berlin Bass",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 2,
+    "loop": true
+  },
+  {
+    "name": "BA Submarine",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 3,
+    "loop": true
+  },
+  {
+    "name": "BA Rubber Bass",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 4,
+    "loop": true
+  },
+  {
+    "name": "BA Acid Circuit",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 5,
+    "loop": true
+  },
+  {
+    "name": "BA Dark Pulse",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 6,
+    "loop": true
+  },
+  {
+    "name": "BA Wide Reese",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 7,
+    "loop": true
+  },
+  {
+    "name": "BA Velvet Sub",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 8,
+    "loop": true
+  },
+  {
+    "name": "BA Night Drive",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 9,
+    "loop": true
+  },
+  {
+    "name": "BA Electric Bite",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 10,
+    "loop": true
+  },
+  {
+    "name": "BA Future Bass",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 11,
+    "loop": true
+  },
+  {
+    "name": "BA Solid Square",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 12,
+    "loop": true
+  },
+  {
+    "name": "BA Low Gravity",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 13,
+    "loop": true
+  },
+  {
+    "name": "BA Thunder Bass",
+    "category": "Bass",
+    "kind": 0,
+    "variant": 14,
+    "loop": true
+  },
+  {
+    "name": "KY Vintage EP",
+    "category": "Keys",
+    "kind": 1,
+    "variant": 1,
+    "loop": false
+  },
+  {
+    "name": "KY Digital Keys",
+    "category": "Keys",
+    "kind": 1,
+    "variant": 2,
+    "loop": false
+  },
+  {
+    "name": "KY Glass Organ",
+    "category": "Keys",
+    "kind": 1,
+    "variant": 3,
+    "loop": false
+  },
+  {
+    "name": "KY Soft Tines",
+    "category": "Keys",
+    "kind": 1,
+    "variant": 4,
+    "loop": false
+  },
+  {
+    "name": "KY Dream Keys",
+    "category": "Keys",
+    "kind": 1,
+    "variant": 5,
+    "loop": false
+  },
+  {
+    "name": "KY Velvet Electric",
+    "category": "Keys",
+    "kind": 1,
+    "variant": 6,
+    "loop": false
+  },
+  {
+    "name": "KY Analog Keys",
+    "category": "Keys",
+    "kind": 1,
+    "variant": 7,
+    "loop": false
+  },
+  {
+    "name": "PD Eternal Horizons",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 1,
+    "loop": true
+  },
+  {
+    "name": "PD Aurora Lights",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 2,
+    "loop": true
+  },
+  {
+    "name": "PD Celestial Motion",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 3,
+    "loop": true
+  },
+  {
+    "name": "PD Frozen Sky",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 4,
+    "loop": true
+  },
+  {
+    "name": "PD Warm Clouds",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 5,
+    "loop": true
+  },
+  {
+    "name": "PD Silver Horizon",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 6,
+    "loop": true
+  },
+  {
+    "name": "PD Nebula Drift",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 7,
+    "loop": true
+  },
+  {
+    "name": "PD Ocean Floor",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 8,
+    "loop": true
+  },
+  {
+    "name": "PD Solar Winds",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 9,
+    "loop": true
+  },
+  {
+    "name": "PD Midnight Choir",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 10,
+    "loop": true
+  },
+  {
+    "name": "PD Soft Galaxy",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 11,
+    "loop": true
+  },
+  {
+    "name": "PD Amber Mist",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 12,
+    "loop": true
+  },
+  {
+    "name": "PD Blue Orbit",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 13,
+    "loop": true
+  },
+  {
+    "name": "PD Infinite Space",
+    "category": "Pads",
+    "kind": 2,
+    "variant": 14,
+    "loop": true
+  },
+  {
+    "name": "PL Ibiza Sunset",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 1,
+    "loop": false
+  },
+  {
+    "name": "PL Crystal Drops",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 2,
+    "loop": false
+  },
+  {
+    "name": "PL Digital Paradise",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 3,
+    "loop": false
+  },
+  {
+    "name": "PL Neon Pluck",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 4,
+    "loop": false
+  },
+  {
+    "name": "PL Glass Harp",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 5,
+    "loop": false
+  },
+  {
+    "name": "PL Dream Pulse",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 6,
+    "loop": false
+  },
+  {
+    "name": "PL Bright Chime",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 7,
+    "loop": false
+  },
+  {
+    "name": "PL Tokyo Lights",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 8,
+    "loop": false
+  },
+  {
+    "name": "PL Soft Plectrum",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 9,
+    "loop": false
+  },
+  {
+    "name": "PL Lunar Pluck",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 10,
+    "loop": false
+  },
+  {
+    "name": "PL Ocean Spark",
+    "category": "Plucks",
+    "kind": 3,
+    "variant": 11,
+    "loop": false
+  },
+  {
+    "name": "LD Festival Anthem",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 0,
+    "loop": true
+  },
+  {
+    "name": "LD Supersaw Legacy",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 1,
+    "loop": true
+  },
+  {
+    "name": "LD Neon Dreams",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 2,
+    "loop": true
+  },
+  {
+    "name": "LD Laser Lead",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 3,
+    "loop": true
+  },
+  {
+    "name": "LD Retro Solo",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 4,
+    "loop": true
+  },
+  {
+    "name": "LD Bright Signal",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 5,
+    "loop": true
+  },
+  {
+    "name": "LD Analog Hero",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 6,
+    "loop": true
+  },
+  {
+    "name": "LD Skyline",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 7,
+    "loop": true
+  },
+  {
+    "name": "LD Pulse Racer",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 8,
+    "loop": true
+  },
+  {
+    "name": "LD Electric Sun",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 9,
+    "loop": true
+  },
+  {
+    "name": "LD Vapor Lead",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 10,
+    "loop": true
+  },
+  {
+    "name": "LD High Voltage",
+    "category": "Leads",
+    "kind": 4,
+    "variant": 11,
+    "loop": true
+  },
+  {
+    "name": "PN Concert Sketch",
+    "category": "Pianos",
+    "kind": 5,
+    "variant": 0,
+    "loop": false
+  },
+  {
+    "name": "PN Midnight Piano",
+    "category": "Pianos",
+    "kind": 5,
+    "variant": 1,
+    "loop": false
+  },
+  {
+    "name": "PN Cinema Grand",
+    "category": "Pianos",
+    "kind": 5,
+    "variant": 2,
+    "loop": false
+  },
+  {
+    "name": "PN Soft Felt",
+    "category": "Pianos",
+    "kind": 5,
+    "variant": 3,
+    "loop": false
+  },
+  {
+    "name": "PN Bright Stage",
+    "category": "Pianos",
+    "kind": 5,
+    "variant": 4,
+    "loop": false
+  },
+  {
+    "name": "PN Dream Piano",
+    "category": "Pianos",
+    "kind": 5,
+    "variant": 5,
+    "loop": false
+  },
+  {
+    "name": "PN Warm Upright",
+    "category": "Pianos",
+    "kind": 5,
+    "variant": 6,
+    "loop": false
+  },
+  {
+    "name": "PN Silver Piano",
+    "category": "Pianos",
+    "kind": 5,
+    "variant": 7,
+    "loop": false
+  },
+  {
+    "name": "ST Hollywood Ensemble",
+    "category": "Strings",
+    "kind": 6,
+    "variant": 0,
+    "loop": true
+  },
+  {
+    "name": "ST Emotional Strings",
+    "category": "Strings",
+    "kind": 6,
+    "variant": 1,
+    "loop": true
+  },
+  {
+    "name": "ST Chamber Sketch",
+    "category": "Strings",
+    "kind": 6,
+    "variant": 2,
+    "loop": true
+  },
+  {
+    "name": "ST Soft Ensemble",
+    "category": "Strings",
+    "kind": 6,
+    "variant": 3,
+    "loop": true
+  },
+  {
+    "name": "ST Frozen Strings",
+    "category": "Strings",
+    "kind": 6,
+    "variant": 4,
+    "loop": true
+  },
+  {
+    "name": "BR Cinematic Brass",
+    "category": "Brass",
+    "kind": 7,
+    "variant": 0,
+    "loop": true
+  },
+  {
+    "name": "BR Analog Brass",
+    "category": "Brass",
+    "kind": 7,
+    "variant": 1,
+    "loop": true
+  },
+  {
+    "name": "BR Golden Horn",
+    "category": "Brass",
+    "kind": 7,
+    "variant": 2,
+    "loop": true
+  },
+  {
+    "name": "BR Bright Fanfare",
+    "category": "Brass",
+    "kind": 7,
+    "variant": 3,
+    "loop": true
+  },
+  {
+    "name": "BR Retro Brass",
+    "category": "Brass",
+    "kind": 7,
+    "variant": 4,
+    "loop": true
+  },
+  {
+    "name": "AR Trance Evolution",
+    "category": "Arpeggios",
+    "kind": 8,
+    "variant": 0,
+    "loop": false
+  },
+  {
+    "name": "AR Berlin Sequence",
+    "category": "Arpeggios",
+    "kind": 8,
+    "variant": 1,
+    "loop": false
+  },
+  {
+    "name": "AR Neon Steps",
+    "category": "Arpeggios",
+    "kind": 8,
+    "variant": 2,
+    "loop": false
+  },
+  {
+    "name": "AR Glass Motion",
+    "category": "Arpeggios",
+    "kind": 8,
+    "variant": 3,
+    "loop": false
+  },
+  {
+    "name": "AR Digital Cascade",
+    "category": "Arpeggios",
+    "kind": 8,
+    "variant": 4,
+    "loop": false
+  },
+  {
+    "name": "BL Crystal Bells",
+    "category": "Bells & Mallets",
+    "kind": 9,
+    "variant": 0,
+    "loop": false
+  },
+  {
+    "name": "BL Celestial Mallets",
+    "category": "Bells & Mallets",
+    "kind": 9,
+    "variant": 1,
+    "loop": false
+  },
+  {
+    "name": "BL Ice Chimes",
+    "category": "Bells & Mallets",
+    "kind": 9,
+    "variant": 2,
+    "loop": false
+  },
+  {
+    "name": "BL Metal Dreams",
+    "category": "Bells & Mallets",
+    "kind": 9,
+    "variant": 3,
+    "loop": false
+  },
+  {
+    "name": "BL Soft Marimba",
+    "category": "Bells & Mallets",
+    "kind": 9,
+    "variant": 4,
+    "loop": false
+  },
+  {
+    "name": "AT Frozen Planet",
+    "category": "Atmospheres",
+    "kind": 10,
+    "variant": 0,
+    "loop": true
+  },
+  {
+    "name": "AT Deep Cosmos",
+    "category": "Atmospheres",
+    "kind": 10,
+    "variant": 1,
+    "loop": true
+  },
+  {
+    "name": "AT Ocean Mist",
+    "category": "Atmospheres",
+    "kind": 10,
+    "variant": 2,
+    "loop": true
+  },
+  {
+    "name": "AT Silent Aurora",
+    "category": "Atmospheres",
+    "kind": 10,
+    "variant": 3,
+    "loop": true
+  },
+  {
+    "name": "AT Distant Signal",
+    "category": "Atmospheres",
+    "kind": 10,
+    "variant": 4,
+    "loop": true
+  },
+  {
+    "name": "FX Cinematic Impact",
+    "category": "Synth & FX",
+    "kind": 11,
+    "variant": 0,
+    "loop": false
+  },
+  {
+    "name": "FX Reverse Universe",
+    "category": "Synth & FX",
+    "kind": 11,
+    "variant": 1,
+    "loop": false
+  },
+  {
+    "name": "FX Solar Sweep",
+    "category": "Synth & FX",
+    "kind": 11,
+    "variant": 2,
+    "loop": false
+  },
+  {
+    "name": "FX Space Signal",
+    "category": "Synth & FX",
+    "kind": 11,
+    "variant": 3,
+    "loop": false
+  },
+  {
+    "name": "FX Dark Transition",
+    "category": "Synth & FX",
+    "kind": 11,
+    "variant": 4,
+    "loop": false
+  }
+]
