@@ -20,7 +20,8 @@ jobs:
           repository: inmusic-software/mpc-plugin-builder-sdk
           ref: e78bad508a305a92443758eb2bc8b428e9e7a687
           path: sdk
-      - run: pip install pillow numpy
+      - run: pip install pillow numpy scipy
+      - run: python tools/test_multisamples.py
       - run: python tools/generate_samples.py
       - run: python tools/pack_factory.py
       - run: python tools/retro_assets.py
@@ -45,12 +46,12 @@ jobs:
       - run: python sdk/tools/package.py plugins/Infinity
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-MPC-v0.7.0-EXPERIMENTAL
+          name: Liberty-Infinity-MPC-v0.8.0-EXPERIMENTAL
           path: plugins/Infinity/dist/*.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-v0.7.0-Factory-and-Performance-Validation
+          name: Liberty-Infinity-v0.8.0-Factory-and-Performance-Validation
           path: |
             factory-validation.txt
             switching-validation.txt
@@ -81,6 +82,6 @@ jobs:
       - run: bash macos/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-Mac-Test-v0.7.0-arm64
+          name: Liberty-Infinity-Mac-Test-v0.8.0-arm64
           path: dist/*.zip
           if-no-files-found: error

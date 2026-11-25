@@ -1,0 +1,35 @@
+{
+  "sources": [
+    {
+      "source": 0,
+      "normalize": true,
+      "zones": [
+        {
+          "wav": "piano_C3_soft.wav",
+          "root": 48,
+          "vel_min": 1,
+          "vel_max": 63
+        },
+        {
+          "wav": "piano_C3_hard.wav",
+          "root": 48,
+          "vel_min": 64,
+          "vel_max": 127
+        }
+      ]
+    }
+  ],
+  "patches": [
+    {
+      "patch": 0,
+      "layers": [
+        {
+          "source": 0,
+          "gain_db": -6,
+          "pan": 0,
+          "cents": 0
+        }
+      ]
+    }
+  ]
+}

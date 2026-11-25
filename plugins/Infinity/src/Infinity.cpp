@@ -33,7 +33,7 @@ struct SVF {
 struct Voice {
     int note=-1, patch=0, zone=0, channel=0;
     double pos=0, step=1;
-    int velocityLayer=0,layers=1; std::array<double,4> layerPos{},layerStep{};
+    int velocityLayer=0,layers=1; bool custom=false; std::array<hd::Region,4> region{}; std::array<double,4> ratio{}; std::array<double,4> layerPos{},layerStep{};
     std::array<int,4> layerBand{};
     std::array<float,4> layerLeft{},layerRight{};
     float vel=0, env=0, l=0, r=0, releaseStep=0;
@@ -144,28 +144,34 @@ public:
                 if(!v.stage) continue;
                 constexpr int start=rate*3/4,end=frames-16,xf=rate/25;
                 const bool loop=factory[v.patch].loop;
-                if(!loop&&v.pos>=end){v.stage=0;continue;}
-                if(loop&&v.pos>=end)v.pos=start+xf+std::fmod(v.pos-end,double(end-start-xf));
+                if(!v.custom&&!loop&&v.pos>=end){v.stage=0;continue;}
+                if(!v.custom&&loop&&v.pos>=end)v.pos=start+xf+std::fmod(v.pos-end,double(end-start-xf));
                 const int k=int(v.pos);
-                float x=0,y=0;
+                float x=0,y=0; bool any=false;
                 for(int layer=0;layer<v.layers;++layer){
                     double& pos=v.layerPos[layer];
                     const double step=v.layerStep[layer];
-                    if(loop&&pos>=end)pos=start+xf+std::fmod(pos-end,double(end-start-xf));
-                    if(pos>=end)continue;
+                    const auto region=v.region[layer];
+                    const int ls=v.custom?region.start:start,le=v.custom?region.end:end,lx=v.custom?region.xf:xf;
+                    const bool looping=v.custom?lx>0:loop;
+                    if(looping&&pos>=le)pos=ls+lx+std::fmod(pos-le,double(le-ls-lx));
+                    if(pos>=le)continue;
+                    any=true;
                     int band=v.layerBand[layer];
                     float value=bank.sample(layer,v.zone,v.velocityLayer,pos,band);
-                    if(loop&&pos>=end-xf){float w=float((pos-(end-xf))/xf);w=w*w*(3-2*w);
-                        value=value*(1-w)+bank.sample(layer,v.zone,v.velocityLayer,start+pos-(end-xf),band)*w;}
+                    if(looping&&pos>=le-lx){float w=float((pos-(le-lx))/lx);w=w*w*(3-2*w);
+                        value=value*(1-w)+bank.sample(layer,v.zone,v.velocityLayer,ls+pos-(le-lx),band)*w;}
+                    if(v.custom&&!looping)value*=std::min(1.f,float(le-pos)/128.f);
                     pos+=step;
                     x+=value*v.layerLeft[layer];y+=value*v.layerRight[layer];
                 }
+                if(v.custom&&!any){v.stage=0;continue;}
                 v.pos+=v.step*bendRatio;
                 if(v.stage==1) {v.env=std::min(1.f,v.env+a);if(v.env>=1) v.stage=2;}
                 else if(v.stage==2) {v.env=std::max(s,v.env-d);if(v.env<=s)v.stage=3;}
                 else if(v.stage==3) v.env=s;
                 else {if(v.releaseStep==0) v.releaseStep=v.env/releaseFrames;v.env-=v.releaseStep;if(v.env<=0){v.stage=0;continue;}}
-                const float fade=loop?1.f:std::min(1.f,float(frames-1-k)/128.f);
+                const float fade=v.custom||loop?1.f:std::min(1.f,float(frames-1-k)/128.f);
                 if(v.stage==4&&v.fs!=4){v.fs=4;v.fr=v.fe/frel;}
                 if(v.fs==1){v.fe=std::min(1.f,v.fe+fa);if(v.fe>=1)v.fs=2;}
                 else if(v.fs==2){v.fe=std::max(fsus,v.fe-fd);if(v.fe<=fsus)v.fs=3;}
@@ -219,11 +225,11 @@ private:
     std::atomic<int> activeVoices{0};
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=700;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=800;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){
-            const double ratio=1.0+(l==1?.002:l==2?-.003:l==3?.005:0);
+            const double ratio=v.custom?v.ratio[l]:1.0+(l==1?.002:l==2?-.003:l==3?.005:0);
             v.layerStep[l]=v.step*bendRatio*ratio;
             v.layerBand[l]=bank.band(v.layerStep[l]);
         }
@@ -237,11 +243,18 @@ private:
             if((x.stage==4&&v->stage!=4)||(x.stage==4)==(v->stage==4)&&x.age<v->age)v=&x;
         }
         *v=Voice{};v->note=note;v->channel=ch;v->patch=p;v->zone=z;v->vel=vel/127.f;
-        v->velocityLayer=std::min(3,(vel-1)/32);v->layers=bank.layers();
+        v->velocityLayer=std::min(3,(vel-1)/32);v->layers=bank.layers();v->custom=bank.customPatch(p);
         v->step=rate/sr*std::pow(2.,(note-roots[z])/12.);v->stage=1;v->held=true;v->age=++counter;
         for(int l=0;l<v->layers;++l){
             float pan=v->layers==1?.5f:l==0?.5f:l==1?.15f:l==2?.85f:.65f;
             float weight=(l==0?1.f:.45f)/(1.f+.45f*(v->layers-1));
+            if(v->custom){
+                auto s=bank.layerSettings(p,l);
+                pan=(s.pan+1.f)*.5f;weight=s.gain;
+                v->ratio[l]=std::pow(2.,s.cents/1200.);
+                v->region[l]=bank.region(p,l,z,v->velocityLayer);
+                if(!v->region[l].custom){v->region[l]={rate*3/4,frames-16,factory[p].loop?rate/25:0,false};}
+            }
             v->layerLeft[l]=weight*(1-pan)*2;v->layerRight[l]=weight*pan*2;
         }
         updateSteps(*v);

@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <fstream>
+#include <sstream>
 
 namespace hd {
 constexpr int rate=44100,frames=rate*2,zones=5,velocities=4,maxLayers=4;
@@ -28,6 +30,8 @@ inline int source(int p,int layer){
     for(int n=0;n<layer;++n)do{q=(q+1)%factoryCount;}while(factory[q].kind!=factory[p].kind);
     return q;
 }
+struct LayerSettings { int source=-1; float gain=0,pan=0,cents=0; };
+struct Region { int start=0,end=frames-16,xf=0; bool custom=false; };
 struct Slot {
     std::atomic<int> state{0}; // free, writing, ready, playing
     int patch=-1,layers=0;
@@ -42,15 +46,40 @@ class Bank {
     std::thread worker;
     int active=-1; // accessed only on the audio thread after construction
     bool valid=false;
+    std::array<std::array<LayerSettings,maxLayers>,factoryCount> settings{};
+    std::array<int,factoryCount> counts{};
+    std::array<std::array<Region,zones*velocities>,factoryCount> regions{};
+    bool readMap(){
+        std::ifstream in(path+".map");
+        if(!in){ std::FILE* f=std::fopen((path+".map").c_str(),"rb"); if(f){std::fclose(f);return false;} return true; }
+        std::string line; if(!std::getline(in,line)||line!="LINFMAP1")return false;
+        while(std::getline(in,line)){
+            if(line.empty())continue;
+            std::istringstream s(line); char type; int p,l,q; if(!(s>>type>>p>>l>>q)||p<0||p>=factoryCount)return false;
+            if(type=='L'){
+                float g,pan,cents; if(!(s>>g>>pan>>cents)||l!=counts[p]||l>=maxLayers||q<0||q>=factoryCount||
+                    !std::isfinite(g)||g<0||g>2||!std::isfinite(pan)||pan<-1||pan>1||!std::isfinite(cents)||std::abs(cents)>1200)return false;
+                settings[p][l]={q,g,pan,cents};++counts[p];
+            }else if(type=='Z'){
+                int start,end,xf; if(!(s>>start>>end>>xf)||l<0||l>=zones||q<0||q>=velocities||
+                    start<0||end<32||end>frames||start>=end||xf<0||xf>(end-start)/3)return false;
+                auto& r=regions[p][l*velocities+q];if(r.custom)return false;
+                r={start,end,xf,true};
+            }else return false;
+            std::string extra;if(s>>extra)return false;
+        }
+        return in.eof();
+    }
     std::array<std::array<std::array<float,taps>,phases>,bands> kernel{};
     static constexpr double pi=3.14159265358979323846;
     bool readSlot(Slot& s,int p){
         std::FILE* f=std::fopen(path.c_str(),"rb");if(!f)return false;
         std::vector<unsigned char> raw(patchBytes);
-        bool ok=true;int count=layerCount(p);
+        bool ok=true;int count=counts[p]?counts[p]:layerCount(p);
+        for(int l=count;l<maxLayers;++l)std::vector<int32_t>().swap(s.pcm[l]);
         for(int l=0;l<count&&ok;++l){
             auto& d=s.pcm[l];d.resize(size_t(zones)*velocities*frames);
-            ok=std::fseek(f,long(headerSize+size_t(source(p,l))*patchBytes),SEEK_SET)==0
+            ok=std::fseek(f,long(headerSize+size_t(sourceFor(p,l))*patchBytes),SEEK_SET)==0
                 &&std::fread(raw.data(),1,raw.size(),f)==raw.size();
             if(ok)for(size_t i=0;i<d.size();++i){
                 uint32_t x=uint32_t(raw[i*3])|(uint32_t(raw[i*3+1])<<8)|(uint32_t(raw[i*3+2])<<16);
@@ -91,7 +120,7 @@ public:
         valid=std::fseek(f,0,SEEK_END)==0&&std::ftell(f)==long(headerSize+size_t(factoryCount)*patchBytes)
             &&std::fseek(f,0,SEEK_SET)==0&&std::fread(header,1,headerSize,f)==headerSize
             &&std::equal(std::begin(header),std::end(header),std::begin(expected));
-        std::fclose(f);if(!valid)return;
+        std::fclose(f);if(!valid||!readMap()){valid=false;return;}
         for(int b=0;b<bands;++b)for(int p=0;p<phases;++p){
             const double cut=.94*std::pow(.5,b*.75),frac=double(p)/phases;double sum=0;
             for(int t=0;t<taps;++t){
@@ -125,6 +154,10 @@ public:
         }
         return false;
     }
+    int sourceFor(int p,int l)const{return counts[p]?settings[p][l].source:source(p,l);}
+    bool customPatch(int p)const{return counts[p]!=0;}
+    LayerSettings layerSettings(int p,int l)const{return settings[p][l];}
+    Region region(int p,int l,int z,int v)const{return regions[sourceFor(p,l)][z*velocities+v];}
     int layers()const{return active>=0?slots[active].layers:0;}
     int band(double step)const{
         if(step<=1)return 0;

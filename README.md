@@ -1,4 +1,4 @@
-# Liberty Infinity — MPC ROMpler v0.7.0
+# Liberty Infinity — MPC ROMpler v0.8.0
 
 Plugin principal MPC ARM32/ARM64, MPC OS 3.10.1+ External Plugin Support bêta. Application macOS ARM64 de test, même DSP et banque. Pas un AU.
 
@@ -27,3 +27,7 @@ Remplacement de la banque précédente par 2000 zones mono PCM24 44,1 kHz (100 s
 ## Performance & Stability (v0.7)
 
 Banque HD identique. Mise en cache des pas de lecture et bandes sinc à la création de voix et au pitch bend, coefficients de panoramique/gain pré-calculés, interpolation sans clamp par tap loin des bords, calcul de modulation FX uniquement si nécessaire. Priorité de vol aux voix en relâchement. Changement de son : fondu sec de 5 ms pendant le chargement, puis remontée 5 ms ; les notes tenues reçues pendant le chargement sont rejouées, les notes relâchées avant chargement sont annulées. Les changements suivants annulent les notes en attente de l'ancien choix. Les resets du firmware peuvent néanmoins interrompre les anciennes voix et les effets. Pas de streaming ni de polyphonie accrue sur MPC. Benchmarks CI comparatifs v0.6/v0.7 à 48 kHz/128, 8/16/32/64 voix, FX OFF/ON, moyenne/p95/p99/max et dépassements. Tests de changements rapides et des notes en attente. Ces résultats ne prouvent pas le temps réel sur le matériel ni la qualité perceptive. 
+
+## Professional ROMpler (v0.8.0, first import stage)
+
+Offline importer `tools/import_multisamples.py` (Python, numpy, scipy) creates a separate Factory.pcm and Factory.pcm.map from user-owned WAV files. Use the sample manifest in docs. Mono conversion for stereo WAV, polyphase conversion, monophonic root detection or explicit root, key/velocity range mapping to existing five roots/four velocity bins, optional shared peak normalization, loop points in original WAV frames, and up to four source layers with independent gain/pan/tuning. The runtime reads the optional map at startup, uses per-layer settings and loop regions, and keeps the original factory path when no map is present. Stop the host and install both files together in Content (on Mac, in the app Resources/Content; this invalidates the ad-hoc signature, rebuild/re-sign for testing). Back up original content; a replaced source slot can also affect factory presets which reuse it. Names and preset numbers remain factory names; no graphical editor yet. Two seconds maximum per zone after conversion, longer samples truncated, loops exceeding the limit rejected; stereo downmix can cancel out-of-phase material. No arbitrary runtime mapping, no streaming and no new acoustic recordings. No on-device measurements yet. The importer is an external development utility, not a native MPC browser.
