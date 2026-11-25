@@ -9,7 +9,7 @@ public:
 #else
     static constexpr unsigned pageCount=256;
 #endif
-    static constexpr unsigned ways=4, sets=pageCount/ways;
+    static constexpr unsigned ways=8, sets=pageCount/ways;
     static constexpr unsigned pageBits=13, pageMask=(1u<<pageBits)-1;
     static constexpr unsigned queueSize=2048, recentSize=4096;
 private:
@@ -35,7 +35,7 @@ private:
         if(!entry){drops.fetch_add(1,std::memory_order_relaxed);return;}
         *entry={key,e};
         for(unsigned w=0;w<ways;++w){auto& p=pages[setFor(key)+w];
-            if(p.state.load(std::memory_order_acquire)>=2&&p.key.load(std::memory_order_relaxed)==key)return;}
+            if(p.state.load(std::memory_order_acquire)>=2&&p.key.load(std::memory_order_relaxed)==key){p.last.store(e,std::memory_order_relaxed);return;}}
         const uint32_t h=head.load(std::memory_order_relaxed),t=tail.load(std::memory_order_acquire);
         if(h-t>=queueSize){drops.fetch_add(1,std::memory_order_relaxed);return;}
         queue[h&(queueSize-1)]=key;head.store(h+1,std::memory_order_release);
@@ -110,7 +110,7 @@ public:
                 auto& p=pages[set+w];unsigned state=p.state.load(std::memory_order_acquire);
                 if(state==0){victim=int(set+w);break;}
                 uint32_t a=now-p.last.load(std::memory_order_relaxed);
-                if(state==2&&(victim<0||a>age)){victim=int(set+w);age=a;}
+                if(state==2&&a>2&&(victim<0||a>age)){victim=int(set+w);age=a;}
             }
             if(victim<0)continue;
             auto& p=pages[victim];unsigned expected=p.state.load(std::memory_order_relaxed);

@@ -165,12 +165,16 @@ public:
                     const auto region=v.region[layer];
                     const int ls=v.custom?region.start:start,le=v.custom?region.end:end,lx=v.custom?region.xf:xf;
                     const bool looping=!releaseLayer&&(v.custom?lx>0:loop);
-                    if(v.layerStream[layer]&&(i==0||pos==0)){
+                    const bool wrapped=looping&&pos>=le;
+                    if(wrapped)pos=ls+lx+std::fmod(pos-le,double(le-ls-lx));
+                    if(v.layerStream[layer]&&(i==0||pos==0||wrapped)){
+                        // Request the actual playback position, including a wrapped block.
                         bank.prefetch(layer,v.zone,v.velocityLayer,pos);
-                        if(looping&&pos>=le-lx-3*hd::StreamCache::pageFrames)
+                        if(looping&&pos>=le-lx-4*hd::StreamCache::pageFrames){
                             bank.prefetch(layer,v.zone,v.velocityLayer,ls);
+                            bank.prefetch(layer,v.zone,v.velocityLayer,ls+lx);
+                        }
                     }
-                    if(looping&&pos>=le)pos=ls+lx+std::fmod(pos-le,double(le-ls-lx));
                     if(pos>=le)continue;
                     any=true;
                     int band=v.layerBand[layer];
@@ -248,7 +252,7 @@ private:
     std::atomic<int> activeVoices{0};
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=904;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=905;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){
@@ -286,6 +290,7 @@ private:
             v->region[l]=bank.region(p,l,z,v->velocityLayer);
             if(v->region[l].custom)v->custom=true;
             else v->region[l]={rate*3/4,frames-16,factory[p].loop?rate/25:0,false};
+            weight*=bank.patchGain(p);
             v->layerLeft[l]=weight*(1-pan)*2;v->layerRight[l]=weight*pan*2;
         }
         updateSteps(*v);

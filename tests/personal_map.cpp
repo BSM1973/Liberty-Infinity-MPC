@@ -64,5 +64,12 @@ int main(){
         }
     }
     if(energy<1e-7||looped.activeVoiceCount()!=1)return 12;
+    {
+        std::ofstream f(map);f<<"LINFMAP1\nG 0 -6\n";
+    }
+    {hd::Bank trimmed(path);if(!trimmed.good()||std::abs(trimmed.patchGain(0)-std::pow(10.f,-6.f/20.f))>1e-6f||trimmed.patchGain(1)!=1.f)return 13;}
+    {std::ofstream f(map);f<<"LINFMAP1\nG 0 7\n";}
+    {hd::Bank bad(path);if(bad.good())return 14;}
+    std::remove(map.c_str());
     std::cout<<"PASS personal map: layer gain, hard-left pan, finite region end, source-only one-shot and loop\n";
 }

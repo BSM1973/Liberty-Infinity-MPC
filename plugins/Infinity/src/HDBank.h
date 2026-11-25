@@ -76,6 +76,8 @@ class Bank {
     bool valid=false;
     std::array<std::array<LayerSettings,maxLayers>,factoryCount> settings{};
     std::array<int,factoryCount> counts{};
+    std::array<float,factoryCount> patchGains{};
+    std::array<bool,factoryCount> gainSet{};
     std::array<std::array<bool,maxLayers>,factoryCount> rolesSet{};
     std::array<std::array<Region,zones*velocities>,factoryCount> regions{};
     uint64_t fileBytes=0;
@@ -108,7 +110,13 @@ class Bank {
         const bool streaming=line=="LINFMAP3";bool extended=line!="LINFMAP1";if(!extended&&fileBytes!=legacyBytes)return false;
         while(std::getline(in,line)){
             if(line.empty())continue;
-            std::istringstream s(line); char type; int p,l,q; if(!(s>>type>>p>>l>>q)||p<0||p>=factoryCount)return false;
+            std::istringstream s(line); char type; int p,l,q; if(!(s>>type>>p)||p<0||p>=factoryCount)return false;
+            if(type=='G'){
+                float db;std::string extra;
+                if(!(s>>db)||!std::isfinite(db)||db<-12||db>6||gainSet[p]||(s>>extra))return false;
+                patchGains[p]=std::pow(10.f,db/20.f);gainSet[p]=true;continue;
+            }
+            if(!(s>>l>>q))return false;
             if(type=='L'){
                 float g,pan,cents; if(!(s>>g>>pan>>cents)||l!=counts[p]||l>=maxLayers||q<0||q>=factoryCount||
                     !std::isfinite(g)||g<0||g>2||!std::isfinite(pan)||pan<-1||pan>1||!std::isfinite(cents)||std::abs(cents)>1200)return false;
@@ -257,6 +265,7 @@ public:
         return false;
     }
     int sourceFor(int p,int l)const{return counts[p]?settings[p][l].source:source(p,l);}
+    float patchGain(int p)const{return gainSet[p]?patchGains[p]:1.f;}
     bool customPatch(int p)const{return counts[p]!=0;}
     LayerSettings layerSettings(int p,int l)const{return settings[p][l];}
     std::array<float,maxLayers> weights(int p,int velocity,uint32_t sequence)const{return articulationWeights(settings[p],counts[p],velocity,sequence);}
