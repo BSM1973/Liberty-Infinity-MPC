@@ -76,6 +76,9 @@
 
 @interface InfinityStudio:NSView
 -(void)openWavs:(id)sender;
+-(NSMutableDictionary*)studioLayerRecord;
+-(NSMutableDictionary*)studioZoneRecord;
+-(NSMutableArray*)studioZoneRecords;
 @end
 @implementation InfinityStudio {
     NSPopUpButton *layerMenu,*zoneMenu;
@@ -133,18 +136,18 @@
     __weak InfinityStudio *weakSelf=self;wave.changed=^(AVAudioFramePosition a,AVAudioFramePosition b){[weakSelf setLoopA:a b:b];};
     [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];[self showLayer];return self;
 }
--(NSMutableDictionary*)layer{return layers[selectedLayer];}
--(NSMutableArray*)zones{return [self layer][@"zones"];}
--(NSMutableDictionary*)zone{NSMutableArray *z=[self zones];return selectedZone>=0&&selectedZone<(NSInteger)z.count?z[selectedZone]:nil;}
+-(NSMutableDictionary*)studioLayerRecord{return layers[selectedLayer];}
+-(NSMutableArray*)studioZoneRecords{return [self studioLayerRecord][@"zones"];}
+-(NSMutableDictionary*)studioZoneRecord{NSMutableArray *z=[self studioZoneRecords];return selectedZone>=0&&selectedZone<(NSInteger)z.count?z[selectedZone]:nil;}
 -(void)message:(NSString*)s{status.stringValue=s?:@"";}
--(void)setLoopA:(AVAudioFramePosition)a b:(AVAudioFramePosition)b{if(![self zone])return;loop.state=NSControlStateValueOn;loopStart.integerValue=a;loopEnd.integerValue=b;[self commitFields:nil];}
+-(void)setLoopA:(AVAudioFramePosition)a b:(AVAudioFramePosition)b{if(![self studioZoneRecord])return;loop.state=NSControlStateValueOn;loopStart.integerValue=a;loopEnd.integerValue=b;[self commitFields:nil];}
 -(void)commitFields:(id)sender{
-    (void)sender;NSMutableDictionary *l=[self layer];l[@"source"]=@(std::clamp(source.integerValue,NSInteger(0),NSInteger(99)));
+    (void)sender;NSMutableDictionary *l=[self studioLayerRecord];l[@"source"]=@(std::clamp(source.integerValue,NSInteger(0),NSInteger(99)));
     l[@"gain_db"]=@(std::clamp(gainField.doubleValue,-60.,6.));l[@"pan"]=@(std::clamp(panField.doubleValue,-1.,1.));l[@"cents"]=@(std::clamp(tune.doubleValue,-1200.,1200.));
     l[@"normalize"]=@(normalize.state==NSControlStateValueOn);l[@"mute"]=@(mute.state==NSControlStateValueOn);l[@"solo"]=@(solo.state==NSControlStateValueOn);
     source.integerValue=[l[@"source"] integerValue];gainField.doubleValue=[l[@"gain_db"] doubleValue];panField.doubleValue=[l[@"pan"] doubleValue];tune.doubleValue=[l[@"cents"] doubleValue];
     patch.integerValue=std::clamp(patch.integerValue,NSInteger(0),NSInteger(99));
-    NSMutableDictionary *z=[self zone];if(!z)return;
+    NSMutableDictionary *z=[self studioZoneRecord];if(!z)return;
     NSInteger k=std::clamp(keyLo.integerValue,NSInteger(0),NSInteger(127)),v=std::clamp(velLo.integerValue,NSInteger(1),NSInteger(127));
     keyLo.integerValue=k;keyHi.integerValue=std::clamp(keyHi.integerValue,k,NSInteger(127));velLo.integerValue=v;velHi.integerValue=std::clamp(velHi.integerValue,v,NSInteger(127));
     root.integerValue=std::clamp(root.integerValue,NSInteger(-1),NSInteger(127));
@@ -158,13 +161,13 @@
     wave.loopEnabled=loop.state==NSControlStateValueOn;[wave setNeedsDisplay:YES];keys.low=keyLo.integerValue;keys.high=keyHi.integerValue;keys.root=root.integerValue;[keys setNeedsDisplay:YES];
 }
 -(void)showLayer{
-    NSDictionary *l=[self layer];source.integerValue=[l[@"source"] integerValue];gainField.doubleValue=[l[@"gain_db"] doubleValue];panField.doubleValue=[l[@"pan"] doubleValue];tune.doubleValue=[l[@"cents"] doubleValue];
+    NSDictionary *l=[self studioLayerRecord];source.integerValue=[l[@"source"] integerValue];gainField.doubleValue=[l[@"gain_db"] doubleValue];panField.doubleValue=[l[@"pan"] doubleValue];tune.doubleValue=[l[@"cents"] doubleValue];
     normalize.state=[l[@"normalize"] boolValue]?NSControlStateValueOn:NSControlStateValueOff;mute.state=[l[@"mute"] boolValue]?NSControlStateValueOn:NSControlStateValueOff;solo.state=[l[@"solo"] boolValue]?NSControlStateValueOn:NSControlStateValueOff;
-    [zoneMenu removeAllItems];for(NSDictionary *z in [self zones])[zoneMenu addItemWithTitle:[NSString stringWithFormat:@"%ld — %@",(long)zoneMenu.numberOfItems+1,[z[@"wav"] lastPathComponent]]];
-    selectedZone=[self zones].count?0:-1;[self showZone];
+    [zoneMenu removeAllItems];for(NSDictionary *z in [self studioZoneRecords])[zoneMenu addItemWithTitle:[NSString stringWithFormat:@"%ld — %@",(long)zoneMenu.numberOfItems+1,[z[@"wav"] lastPathComponent]]];
+    selectedZone=[self studioZoneRecords].count?0:-1;[self showZone];
 }
 -(void)showZone{
-    [preview stop];preview=nil;NSDictionary *z=[self zone];BOOL exists=z!=nil;
+    [preview stop];preview=nil;NSDictionary *z=[self studioZoneRecord];BOOL exists=z!=nil;
     for(NSControl *c in @[root,keyLo,keyHi,velLo,velHi,loop,loopStart,loopEnd])c.enabled=exists;
     if(!exists){wave.total=0;[wave setNeedsDisplay:YES];keys.low=1;keys.high=0;keys.root=-1;[keys setNeedsDisplay:YES];return;}
     [zoneMenu selectItemAtIndex:selectedZone];NSError *err=nil;
@@ -181,19 +184,19 @@
 -(void)addURLs:(NSArray<NSURL*>*)urls{
     [self commitFields:nil];NSUInteger added=0;
     for(NSURL *url in urls){
-        if(!url.isFileURL||![url.pathExtension.lowercaseString isEqual:@"wav"]||[self zones].count>=128)continue;
+        if(!url.isFileURL||![url.pathExtension.lowercaseString isEqual:@"wav"]||[self studioZoneRecords].count>=128)continue;
         AVAudioFile *f=[[AVAudioFile alloc]initForReading:url error:nil];if(!f||f.length<64||f.processingFormat.channelCount>2||f.length>120*f.processingFormat.sampleRate)continue;
-        [[self zones] addObject:[@{@"wav":url.path,@"key_min":@0,@"key_max":@127,@"vel_min":@1,@"vel_max":@127} mutableCopy]];++added;
+        [[self studioZoneRecords] addObject:[@{@"wav":url.path,@"key_min":@0,@"key_max":@127,@"vel_min":@1,@"vel_max":@127} mutableCopy]];++added;
     }
-    [self showLayer];if(added){selectedZone=[self zones].count-1;[self showZone];}else [self message:@"Aucun WAV valide ajouté."];
+    [self showLayer];if(added){selectedZone=[self studioZoneRecords].count-1;[self showZone];}else [self message:@"Aucun WAV valide ajouté."];
 }
 -(void)openWavs:(id)sender{(void)sender;NSOpenPanel *p=[NSOpenPanel openPanel];p.allowsMultipleSelection=YES;p.allowedFileTypes=@[@"wav"];if([p runModal]==NSModalResponseOK)[self addURLs:p.URLs];}
 -(NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender{(void)sender;return NSDragOperationCopy;}
 -(BOOL)performDragOperation:(id<NSDraggingInfo>)sender{
     NSArray *urls=[sender.draggingPasteboard readObjectsForClasses:@[NSURL.class] options:@{NSPasteboardURLReadingFileURLsOnlyKey:@YES}];if(!urls.count)return NO;[self addURLs:urls];return YES;
 }
--(void)removeZone:(id)sender{(void)sender;if([self zone]){[[self zones] removeObjectAtIndex:selectedZone];[self showLayer];}}
--(void)play:(id)sender{(void)sender;[self stop:nil];NSDictionary *z=[self zone];if(!z)return;NSError *err=nil;preview=[[AVAudioPlayer alloc]initWithContentsOfURL:[NSURL fileURLWithPath:z[@"wav"]] error:&err];if(![preview play])[self message:err.localizedDescription?:@"Préécoute impossible."];}
+-(void)removeZone:(id)sender{(void)sender;if([self studioZoneRecord]){[[self studioZoneRecords] removeObjectAtIndex:selectedZone];[self showLayer];}}
+-(void)play:(id)sender{(void)sender;[self stop:nil];NSDictionary *z=[self studioZoneRecord];if(!z)return;NSError *err=nil;preview=[[AVAudioPlayer alloc]initWithContentsOfURL:[NSURL fileURLWithPath:z[@"wav"]] error:&err];if(![preview play])[self message:err.localizedDescription?:@"Préécoute impossible."];}
 -(void)stop:(id)sender{(void)sender;[preview stop];preview=nil;}
 -(void)viewWillMoveToWindow:(NSWindow*)newWindow{if(!newWindow)[self stop:nil];[super viewWillMoveToWindow:newWindow];}
 -(NSDictionary*)manifest{
