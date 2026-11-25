@@ -34,7 +34,8 @@ struct Voice {
     int note=-1, patch=0, zone=0, channel=0;
     double pos=0, step=1;
     int velocityLayer=0,layers=1; bool custom=false; std::array<hd::Region,4> region{}; std::array<double,4> ratio{}; std::array<double,4> layerPos{},layerStep{};
-    std::array<int,4> layerBand{},layerChannels{},layerStream{};
+    std::array<int,4> layerBand{},layerChannels{},layerStream{},layerRole{};
+    std::array<bool,4> layerEnabled{};bool hasRelease=false;
     std::array<float,4> layerLeft{},layerRight{};
     float vel=0, env=0, l=0, r=0, releaseStep=0;
     int stage=0;
@@ -104,7 +105,7 @@ public:
     bool usingPackedBank() const {return bank.good();}
     int loadedZones() const {return bank.good()?patches*zones*hd::velocities:0;}
     void prepare(double sampleRate,int) override { sr=std::clamp(sampleRate,8000.0,192000.0); for(auto& b:lines)b.assign(size_t(sr*2)+4,0); reset(); }
-    void reset() override { pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
+    void reset() override { pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; roundRobin={}; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
     uint32_t streamUnderruns()const{return bank.streamUnderruns();}
     uint32_t streamQueueDrops()const{return bank.streamQueueDrops();}
     uint32_t streamIOErrors()const{return bank.streamIOErrors();}
@@ -115,7 +116,7 @@ public:
         const int desired=std::clamp(getInt(Sound),0,patches-1);
         if(desired!=requested){requested=desired;pending={};}
         bank.requestPatch(desired);
-        if(bank.loadedPatch()!=desired && switchGain<=0.f && bank.select(desired)){voices={};activeVoices.store(0,std::memory_order_relaxed);}
+        if(bank.loadedPatch()!=desired && switchGain<=0.f && bank.select(desired)){voices={};roundRobin={};activeVoices.store(0,std::memory_order_relaxed);}
         const bool waiting=bank.loadedPatch()!=desired;
         if(!waiting)for(int ch=0;ch<16;++ch)for(int note=0;note<128;++note)if(pending[ch][note]){
             startVoice(ch,note,pending[ch][note],desired);pending[ch][note]=0;
@@ -153,15 +154,22 @@ public:
                 if(!v.custom&&!loop&&v.pos>=end){v.stage=0;continue;}
                 if(!v.custom&&loop&&v.pos>=end)v.pos=start+xf+std::fmod(v.pos-end,double(end-start-xf));
                 const int k=v.custom?0:int(v.pos);
-                float x=0,y=0; bool any=false;
+                float x=0,y=0,releaseL=0,releaseR=0; bool any=false;
                 for(int layer=0;layer<v.layers;++layer){
+                    if(!v.layerEnabled[layer])continue;
+                    const bool releaseLayer=v.layerRole[layer]==hd::ReleaseSample;
+                    if(releaseLayer&&v.stage!=4)continue;
+                    if(!releaseLayer&&v.stage==4&&v.env<=0)continue;
                     double& pos=v.layerPos[layer];
                     const double step=v.layerStep[layer];
                     const auto region=v.region[layer];
                     const int ls=v.custom?region.start:start,le=v.custom?region.end:end,lx=v.custom?region.xf:xf;
-                    const bool looping=v.custom?lx>0:loop;
-                    if(v.layerStream[layer]&&looping&&pos>=le-lx-3*hd::StreamCache::pageFrames)
-                        bank.prefetch(layer,v.zone,v.velocityLayer,ls);
+                    const bool looping=!releaseLayer&&(v.custom?lx>0:loop);
+                    if(v.layerStream[layer]&&(i==0||pos==0)){
+                        bank.prefetch(layer,v.zone,v.velocityLayer,pos);
+                        if(looping&&pos>=le-lx-3*hd::StreamCache::pageFrames)
+                            bank.prefetch(layer,v.zone,v.velocityLayer,ls);
+                    }
                     if(looping&&pos>=le)pos=ls+lx+std::fmod(pos-le,double(le-ls-lx));
                     if(pos>=le)continue;
                     any=true;
@@ -173,16 +181,19 @@ public:
                         float b=v.layerChannels[layer]==2?bank.sample(layer,v.zone,v.velocityLayer,wrap,band,1):a;
                         left=left*(1-w)+a*w;right=right*(1-w)+b*w;}
                     if(v.custom&&!looping){float fade=std::min(1.f,float(le-pos)/128.f);left*=fade;right*=fade;}
+                    if(releaseLayer){
+                        const float fadeIn=std::min(1.f,float(pos)/64.f);
+                        releaseL+=left*v.layerLeft[layer]*fadeIn;releaseR+=right*v.layerRight[layer]*fadeIn;
+                    }else{x+=left*v.layerLeft[layer];y+=right*v.layerRight[layer];}
                     pos+=step;
-                    x+=left*v.layerLeft[layer];y+=right*v.layerRight[layer];
                 }
-                if(v.custom&&!any){v.stage=0;continue;}
+                if(v.custom&&!any&&!(v.hasRelease&&v.stage!=4)){v.stage=0;continue;}
                 v.pos+=v.step*bendRatio;
                 if(v.custom)v.pos=std::min(v.pos,double(frames)*2); // Bound elapsed position for sustained custom loops.
                 if(v.stage==1) {v.env=std::min(1.f,v.env+a);if(v.env>=1) v.stage=2;}
                 else if(v.stage==2) {v.env=std::max(s,v.env-d);if(v.env<=s)v.stage=3;}
                 else if(v.stage==3) v.env=s;
-                else {if(v.releaseStep==0) v.releaseStep=v.env/releaseFrames;v.env-=v.releaseStep;if(v.env<=0){v.stage=0;continue;}}
+                else {if(v.releaseStep==0) v.releaseStep=v.env/releaseFrames;v.env=std::max(0.f,v.env-v.releaseStep);if(v.env<=0&&!v.hasRelease){v.stage=0;continue;}}
                 const float fade=v.custom||loop?1.f:std::min(1.f,float(frames-1-k)/128.f);
                 if(v.stage==4&&v.fs!=4){v.fs=4;v.fr=v.fe/frel;}
                 if(v.fs==1){v.fe=std::min(1.f,v.fe+fa);if(v.fe>=1)v.fs=2;}
@@ -193,7 +204,7 @@ public:
                 float mid=(xl+yr)*.5f;xl=mid+(xl-mid)*(ampOn?spread:1);yr=mid+(yr-mid)*(ampOn?spread:1);
                 const float ae=ampOn?v.env:std::min(1.f,float(v.pos)/128.f)*(v.stage==4?v.env:1.f);
                 const float accent=ampOn?1+spike*std::max(0.f,1-float(v.pos)/2400.f):1;
-                l+=xl*ae*v.vel*fade*accent;r+=yr*ae*v.vel*fade*accent;
+                l+=(xl*ae*fade*accent+releaseL)*v.vel;r+=(yr*ae*fade*accent+releaseR)*v.vel;
             }
             switchGain=waiting?std::max(0.f,switchGain-switchStep):std::min(1.f,switchGain+switchStep);
             l*=switchGain;r*=switchGain;
@@ -237,7 +248,7 @@ private:
     std::atomic<int> activeVoices{0};
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=902;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=903;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){
@@ -257,15 +268,18 @@ private:
         *v=Voice{};v->note=note;v->channel=ch;v->patch=p;v->zone=z;v->vel=vel/127.f;
         v->velocityLayer=std::min(3,(vel-1)/32);v->layers=bank.layers();const bool mappedPatch=bank.customPatch(p);v->custom=mappedPatch;
         v->step=rate/sr*std::pow(2.,(note-roots[z])/12.);v->stage=1;v->held=true;v->age=++counter;
+        const auto weights=bank.weights(p,vel,roundRobin[note]++);
         for(int l=0;l<v->layers;++l){
             float pan=v->layers==1?.5f:l==0?.5f:l==1?.15f:l==2?.85f:.65f;
             float weight=(l==0?1.f:.45f)/(1.f+.45f*(v->layers-1));
             v->ratio[l]=1.0+(l==1?.002:l==2?-.003:l==3?.005:0);
             if(mappedPatch){
                 auto s=bank.layerSettings(p,l);
-                pan=(s.pan+1.f)*.5f;weight=s.gain;
+                pan=(s.pan+1.f)*.5f;weight=s.gain*weights[l];v->layerRole[l]=s.role;
                 v->ratio[l]=std::pow(2.,s.cents/1200.);
             }
+            v->layerEnabled[l]=weight>0.f;
+            v->hasRelease|=v->layerEnabled[l]&&v->layerRole[l]==hd::ReleaseSample;
             const auto rec=bank.sampleRecord(l,z,v->velocityLayer);
             v->layerChannels[l]=rec.channels;v->layerStream[l]=rec.streamId>=0;
             v->ratio[l]*=double(rec.sampleRate)/rate*std::pow(2.,(roots[z]-rec.root)/12.);
@@ -305,6 +319,7 @@ private:
     std::array<std::vector<float>,6> lines;size_t ix=0;float phase=0;
     hd::Bank bank;
     std::array<Voice,voiceLimit> voices{};
+    std::array<uint32_t,128> roundRobin{};
     double sr=44100,bendRatio=1;
     std::array<std::array<uint8_t,128>,16> pending{};
     int requested=-1;float switchGain=1.f;

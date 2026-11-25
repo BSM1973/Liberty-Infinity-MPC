@@ -49,9 +49,9 @@ int main(){
             for(int i=0;i<voices;++i)notes.push_back(mpc::MidiEvent::noteOn(i%16,59+i%5,100));
             ctx.midi=notes.data();ctx.numMidiEvents=voices;
             uint32_t missing=synth.streamUnderruns(),drops=synth.streamQueueDrops(),errors=synth.streamIOErrors();
-            std::vector<double> times;times.reserve(750);double sum=0;int over=0;double energy=0;
+            std::vector<double> times;times.reserve(2250);double sum=0;int over=0;double energy=0;
             auto deadline=Clock::now();const auto period=std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(N/sr));
-            for(int b=0;b<750;++b){
+            for(int b=0;b<2250;++b){
                 auto start=Clock::now();synth.process(ctx);ctx.numMidiEvents=0;
                 double pct=std::chrono::duration<double>(Clock::now()-start).count()/(N/sr)*100;
                 times.push_back(pct);sum+=pct;over+=pct>100;
@@ -60,7 +60,7 @@ int main(){
             }
             if(synth.activeVoiceCount()!=voices||energy<1e-5||synth.streamIOErrors()!=errors)return 10;
             std::sort(times.begin(),times.end());
-            std::cout<<(streaming?"stream":"resident")<<","<<voices<<","<<synth.activePCMBytes()<<","<<synth.streamPageBytes()<<","<<std::fixed<<std::setprecision(3)<<sum/times.size()<<","<<times[712]<<","<<times[742]<<","<<times.back()<<","<<over<<","<<synth.streamUnderruns()-missing<<","<<synth.streamQueueDrops()-drops<<","<<synth.streamIOErrors()-errors<<"\n";
+            std::cout<<(streaming?"stream":"resident")<<","<<voices<<","<<synth.activePCMBytes()<<","<<synth.streamPageBytes()<<","<<std::fixed<<std::setprecision(3)<<sum/times.size()<<","<<times[times.size()*95/100]<<","<<times[times.size()*99/100]<<","<<times.back()<<","<<over<<","<<synth.streamUnderruns()-missing<<","<<synth.streamQueueDrops()-drops<<","<<synth.streamIOErrors()-errors<<"\n";
         }
     }
 }

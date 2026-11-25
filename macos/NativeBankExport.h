@@ -44,7 +44,7 @@ inline AVAudioFile *open(NSString *path){
 inline void read(AVAudioFile *f,AVAudioPCMBuffer *buf){
     require([f readIntoBuffer:buf error:nil]&&buf.frameLength>0,"Lecture WAV interrompue.");
 }
-inline WAV describe(NSDictionary *z,double& peak){
+inline WAV describe(NSDictionary *z,double& peak,double& squares,uint64_t& count){
     AVAudioFile *f=open(z[@"wav"]);auto fmt=f.processingFormat;
     WAV a;require(f.length>=64&&f.length<=hd::maxSampleFrames&&fmt.sampleRate>=8000&&fmt.sampleRate<=192000&&f.length<=fmt.sampleRate*120&&fmt.channelCount>=1&&fmt.channelCount<=2,"WAV non pris en charge (mono/stéréo, 8–192 kHz, 120 s maximum).");
     a.length=int(f.length);a.ch=int(fmt.channelCount);a.sr=int(std::lround(fmt.sampleRate));a.end=a.length;
@@ -60,7 +60,7 @@ inline WAV describe(NSDictionary *z,double& peak){
     std::array<std::vector<float>,2> pitch;double localPeak=0;AVAudioFramePosition done=0;
     while(done<f.length){
         read(f,buf);for(AVAudioFrameCount i=0;i<buf.frameLength;++i)for(int ch=0;ch<a.ch;++ch){
-            float value=buf.floatChannelData[ch][i];require(std::isfinite(value),"WAV non fini.");localPeak=std::max(localPeak,std::abs(double(value)));
+            float value=buf.floatChannelData[ch][i];require(std::isfinite(value),"WAV non fini.");localPeak=std::max(localPeak,std::abs(double(value)));squares+=double(value)*value;++count;
             if(!z[@"root"]&&done+i<a.sr)pitch[ch].push_back(value);
         }done+=buf.frameLength;
     }
@@ -97,14 +97,18 @@ inline NSString *exportBank(NSDictionary *manifest,NSString *base,NSString *dest
         std::ostringstream records;records.imbue(std::locale::classic());records<<std::setprecision(10)<<(streaming?"LINFMAP3\n":"LINFMAP2\n");
         for(NSDictionary *p in manifest[@"patches"]){int patch=field(p,@"patch",0,99),i=0;
             for(NSDictionary *l in p[@"layers"]){
-                require(i<4,"Quatre couches maximum.");records<<"L "<<patch<<" "<<i++<<" "<<field(l,@"source",0,99)<<" "<<std::pow(10.,number(l,@"gain_db",-60,6)/20.)<<" "<<number(l,@"pan",-1,1)<<" "<<number(l,@"cents",-1200,1200)<<"\n";
+                require(i<4,"Quatre couches maximum.");records<<"L "<<patch<<" "<<i<<" "<<field(l,@"source",0,99)<<" "<<std::pow(10.,number(l,@"gain_db",-60,6)/20.)<<" "<<number(l,@"pan",-1,1)<<" "<<number(l,@"cents",-1200,1200)<<"\n";
+                int role=l[@"role"]?field(l,@"role",0,4):0;
+                if(role)records<<"A "<<patch<<" "<<i<<" "<<role<<"\n";++i;
             }require(i>0,"Aucune couche active.");
         }
         for(NSDictionary *s in manifest[@"sources"]){
             int source=field(s,@"source",0,99);NSArray *zones=s[@"zones"];require(zones.count>0&&zones.count<=128,"Nombre de zones invalide.");
-            std::vector<WAV> samples;double peak=0;
-            for(NSDictionary *z in zones)samples.push_back(describe(z,peak));
-            const double scale=[s[@"normalize"] boolValue]?std::min(4.,.891250938/peak):1.;
+            std::vector<WAV> samples;double peak=0,squares=0;uint64_t count=0;
+            for(NSDictionary *z in zones)samples.push_back(describe(z,peak,squares,count));
+            const double rms=count?std::sqrt(squares/count):0.;
+            const double scale=[s[@"rms"] boolValue]?std::min({4.,.891250938/peak,.12589254/std::max(rms,1e-9)}):
+                [s[@"normalize"] boolValue]?std::min(4.,.891250938/peak):1.;
             // Resolve each grid cell first; write only referenced samples, once.
             std::array<int,20> chosen{};chosen.fill(-1);
             for(int i=0;i<5;++i)for(int j=0;j<4;++j){
@@ -121,7 +125,7 @@ inline NSString *exportBank(NSDictionary *manifest,NSString *base,NSString *dest
         require(std::fflush(f.get())==0,"Écriture PCM impossible.");auto raw=f.release();require(std::fclose(raw)==0,"Fermeture PCM impossible.");
         std::ofstream side(mapping.fileSystemRepresentation);side<<records.str();side.close();require(bool(side),"Écriture du mapping impossible.");
         // Validate bounds and all 100 patch cache budgets with the actual engine.
-        {hd::Bank check(bank.fileSystemRepresentation);require(check.good(),"Banque invalide ou plafond de 48 Mio par cache dépassé.");}
+        {hd::Bank check(bank.fileSystemRepresentation);require(check.good(),"Banque invalide : vérifiez les rôles des couches (Round Robin par deux au minimum, vélocités douce/forte par paire, un relâchement maximum) et le plafond de 48 Mio.");}
         require(::link(bank.fileSystemRepresentation,out.fileSystemRepresentation)==0,"Impossible de publier la banque (fichier existant ou stockage incompatible).");
         if(::link(mapping.fileSystemRepresentation,map.fileSystemRepresentation)!=0){::unlink(out.fileSystemRepresentation);throw std::runtime_error("Impossible de publier le mapping.");}
     }catch(const std::exception& e){failure=[NSString stringWithUTF8String:e.what()]?:@"Erreur d’export.";}

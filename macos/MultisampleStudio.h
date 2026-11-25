@@ -84,7 +84,8 @@
 @implementation InfinityStudio {
     NSPopUpButton *layerMenu,*zoneMenu;
     NSTextField *patch,*source,*gainField,*panField,*tune,*root,*keyLo,*keyHi,*velLo,*velHi,*loopStart,*loopEnd,*status;
-    NSButton *loop,*normalize,*mute,*solo,*streamOption;
+    NSButton *loop,*normalize,*mute,*solo,*streamOption,*rmsOption;
+    NSPopUpButton *roleMenu;
     InfinityWave *wave;
     InfinityKeys *keys;
     NSMutableArray<NSMutableDictionary*> *layers;
@@ -109,7 +110,7 @@
 -(instancetype)initWithFrame:(NSRect)frame{
     if(!(self=[super initWithFrame:frame]))return nil;
     self.appearance=[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];self.wantsLayer=YES;self.layer.backgroundColor=[NSColor colorWithWhite:.10 alpha:1].CGColor;
-    layers=[NSMutableArray new];for(int i=0;i<4;++i)[layers addObject:[@{@"source":@(i),@"gain_db":@(-6),@"pan":@0,@"cents":@0,@"normalize":@YES,@"mute":@NO,@"solo":@NO,@"zones":[NSMutableArray new]} mutableCopy]];
+    layers=[NSMutableArray new];for(int i=0;i<4;++i)[layers addObject:[@{@"source":@(i),@"gain_db":@(-6),@"pan":@0,@"cents":@0,@"normalize":@YES,@"rms":@NO,@"role":@0,@"mute":@NO,@"solo":@NO,@"zones":[NSMutableArray new]} mutableCopy]];
     selectedLayer=0;selectedZone=-1;
     NSTextField *title=[self label:@"LIBERTY INFINITY  |  MULTISAMPLE STUDIO" x:16 y:12 w:800];title.font=[NSFont boldSystemFontOfSize:18];
     patch=[self field:@"Preset (0–99)" x:16 y:40 w:112];patch.integerValue=0;
@@ -134,7 +135,12 @@
     [self button:@"Ouvrir JSON" x:188 y:452 w:140 action:@selector(openManifest:)];
     [self button:@"Exporter banque MPC" x:335 y:452 w:200 action:@selector(exportBank:)];
     streamOption=[self check:@"Streaming disque (expérimental)" x:545 y:455 w:347];streamOption.state=NSControlStateValueOff;
-    status=[self label:@"Déposez des fichiers WAV sur cette fenêtre." x:16 y:492 w:876];status.maximumNumberOfLines=3;status.frame=NSMakeRect(16,492,876,58);
+    [self label:@"Rôle de la couche" x:16 y:490 w:130];
+    roleMenu=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(150,486,235,28) pullsDown:NO];
+    [roleMenu addItemsWithTitles:@[@"Normal",@"Round Robin",@"Vélocité douce",@"Vélocité forte",@"Relâchement"]];
+    roleMenu.target=self;roleMenu.action=@selector(commitFields:);[self addSubview:roleMenu];
+    rmsOption=[self check:@"Normalisation RMS (indicative)" x:400 y:490 w:330];
+    status=[self label:@"Déposez des fichiers WAV sur cette fenêtre." x:16 y:530 w:876];status.maximumNumberOfLines=3;status.frame=NSMakeRect(16,530,876,58);
     __weak InfinityStudio *weakSelf=self;wave.changed=^(AVAudioFramePosition a,AVAudioFramePosition b){[weakSelf setLoopA:a b:b];};
     [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];[self showLayer];return self;
 }
@@ -146,7 +152,7 @@
 -(void)commitFields:(id)sender{
     (void)sender;NSMutableDictionary *l=[self studioLayerRecord];l[@"source"]=@(std::clamp(source.integerValue,NSInteger(0),NSInteger(99)));
     l[@"gain_db"]=@(std::clamp(gainField.doubleValue,-60.,6.));l[@"pan"]=@(std::clamp(panField.doubleValue,-1.,1.));l[@"cents"]=@(std::clamp(tune.doubleValue,-1200.,1200.));
-    l[@"normalize"]=@(normalize.state==NSControlStateValueOn);l[@"mute"]=@(mute.state==NSControlStateValueOn);l[@"solo"]=@(solo.state==NSControlStateValueOn);
+    l[@"normalize"]=@(normalize.state==NSControlStateValueOn);l[@"rms"]=@(rmsOption.state==NSControlStateValueOn);l[@"role"]=@(roleMenu.indexOfSelectedItem);l[@"mute"]=@(mute.state==NSControlStateValueOn);l[@"solo"]=@(solo.state==NSControlStateValueOn);
     source.integerValue=[l[@"source"] integerValue];gainField.doubleValue=[l[@"gain_db"] doubleValue];panField.doubleValue=[l[@"pan"] doubleValue];tune.doubleValue=[l[@"cents"] doubleValue];
     patch.integerValue=std::clamp(patch.integerValue,NSInteger(0),NSInteger(99));
     NSMutableDictionary *z=[self studioZoneRecord];if(!z)return;
@@ -164,6 +170,7 @@
 }
 -(void)showLayer{
     NSDictionary *l=[self studioLayerRecord];source.integerValue=[l[@"source"] integerValue];gainField.doubleValue=[l[@"gain_db"] doubleValue];panField.doubleValue=[l[@"pan"] doubleValue];tune.doubleValue=[l[@"cents"] doubleValue];
+    [roleMenu selectItemAtIndex:std::clamp([l[@"role"] integerValue],NSInteger(0),NSInteger(4))];rmsOption.state=[l[@"rms"] boolValue]?NSControlStateValueOn:NSControlStateValueOff;
     normalize.state=[l[@"normalize"] boolValue]?NSControlStateValueOn:NSControlStateValueOff;mute.state=[l[@"mute"] boolValue]?NSControlStateValueOn:NSControlStateValueOff;solo.state=[l[@"solo"] boolValue]?NSControlStateValueOn:NSControlStateValueOff;
     [zoneMenu removeAllItems];for(NSDictionary *z in [self studioZoneRecords])[zoneMenu addItemWithTitle:[NSString stringWithFormat:@"%ld — %@",(long)zoneMenu.numberOfItems+1,[z[@"wav"] lastPathComponent]]];
     selectedZone=[self studioZoneRecords].count?0:-1;[self showZone];
@@ -206,8 +213,8 @@
     for(NSDictionary *l in layers)if([l[@"zones"] count]&&[l[@"solo"] boolValue]&&![l[@"mute"] boolValue])anySolo=YES;
     for(NSDictionary *l in layers){
         if(![l[@"zones"] count])continue;NSNumber *q=l[@"source"];if([used containsObject:q]){[self message:@"Deux couches utilisent le même emplacement source."];return nil;}[used addObject:q];
-        [sources addObject:@{@"source":q,@"normalize":l[@"normalize"],@"zones":l[@"zones"]}];
-        if(![l[@"mute"] boolValue]&&(!anySolo||[l[@"solo"] boolValue]))[active addObject:@{@"source":q,@"gain_db":l[@"gain_db"],@"pan":l[@"pan"],@"cents":l[@"cents"]}];
+        [sources addObject:@{@"source":q,@"normalize":l[@"normalize"],@"rms":l[@"rms"]?:@NO,@"zones":l[@"zones"]}];
+        if(![l[@"mute"] boolValue]&&(!anySolo||[l[@"solo"] boolValue]))[active addObject:@{@"source":q,@"gain_db":l[@"gain_db"],@"pan":l[@"pan"],@"cents":l[@"cents"],@"role":l[@"role"]?:@0}];
     }
     if(!active.count){[self message:@"Au moins une couche non muette avec des WAV est nécessaire."];return nil;}
     return @{@"sources":sources,@"patches":@[@{@"patch":@(patch.integerValue),@"layers":active}]};
@@ -262,9 +269,9 @@
 static NSWindow *infinityStudioWindow;
 static void showInfinityStudio(){
     if(!infinityStudioWindow){
-        infinityStudioWindow=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,908,558) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskMiniaturizable backing:NSBackingStoreBuffered defer:NO];
+        infinityStudioWindow=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,908,600) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskMiniaturizable backing:NSBackingStoreBuffered defer:NO];
         infinityStudioWindow.releasedWhenClosed=NO;infinityStudioWindow.title=@"Liberty Infinity — Multisample Studio";
-        infinityStudioWindow.contentView=[[InfinityStudio alloc]initWithFrame:NSMakeRect(0,0,908,558)];[infinityStudioWindow center];
+        infinityStudioWindow.contentView=[[InfinityStudio alloc]initWithFrame:NSMakeRect(0,0,908,600)];[infinityStudioWindow center];
     }
     [infinityStudioWindow makeKeyAndOrderFront:nil];
 }

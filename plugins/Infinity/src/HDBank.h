@@ -36,7 +36,24 @@ inline int source(int p,int layer){
     for(int n=0;n<layer;++n)do{q=(q+1)%factoryCount;}while(factory[q].kind!=factory[p].kind);
     return q;
 }
-struct LayerSettings { int source=-1; float gain=0,pan=0,cents=0; };
+enum LayerRole { Normal=0, RoundRobin=1, VelocityLow=2, VelocityHigh=3, ReleaseSample=4 };
+struct LayerSettings { int source=-1; float gain=0,pan=0,cents=0; int role=Normal; };
+inline std::array<float,maxLayers> articulationWeights(const std::array<LayerSettings,maxLayers>& ls,int count,int velocity,uint32_t sequence){
+    int rr=0;for(int i=0;i<count;++i)rr+=ls[i].role==RoundRobin;
+    const unsigned chosen=rr?sequence%unsigned(rr):0;unsigned index=0;
+    const float t=std::clamp((velocity-48)/32.f,0.f,1.f);
+    const float smooth=t*t*(3-2*t);
+    std::array<float,maxLayers> out{};
+    for(int i=0;i<count;++i){
+        switch(ls[i].role){
+            case RoundRobin:out[i]=index++==chosen?1.f:0.f;break;
+            case VelocityLow:out[i]=1-smooth;break;
+            case VelocityHigh:out[i]=smooth;break;
+            default:out[i]=1.f;break;
+        }
+    }
+    return out;
+}
 struct Region { int start=0,end=frames-16,xf=0; bool custom=false; };
 struct SampleRecord {
     uint64_t offset=0; int length=frames,channels=1,sampleRate=rate,root=60,streamId=-1;
@@ -59,6 +76,7 @@ class Bank {
     bool valid=false;
     std::array<std::array<LayerSettings,maxLayers>,factoryCount> settings{};
     std::array<int,factoryCount> counts{};
+    std::array<std::array<bool,maxLayers>,factoryCount> rolesSet{};
     std::array<std::array<Region,zones*velocities>,factoryCount> regions{};
     uint64_t fileBytes=0;
     StreamCache stream;
@@ -95,6 +113,10 @@ class Bank {
                 float g,pan,cents; if(!(s>>g>>pan>>cents)||l!=counts[p]||l>=maxLayers||q<0||q>=factoryCount||
                     !std::isfinite(g)||g<0||g>2||!std::isfinite(pan)||pan<-1||pan>1||!std::isfinite(cents)||std::abs(cents)>1200)return false;
                 settings[p][l]={q,g,pan,cents};++counts[p];
+            }else if(type=='A'){
+                // A patch layer role; must follow its L record.
+                if(!extended||l<0||l>=counts[p]||q<Normal||q>ReleaseSample||rolesSet[p][l])return false;
+                settings[p][l].role=q;rolesSet[p][l]=true;
             }else if(type=='Z'){
                 int start,end,xf; if(!(s>>start>>end>>xf)||l<0||l>=zones||q<0||q>=velocities||
                     start<0||end<32||end>frames||start>=end||xf<0||xf>(end-start)/3)return false;
@@ -112,6 +134,10 @@ class Bank {
             std::string extra;if(s>>extra)return false;
         }
         if(!in.eof())return false;
+        for(int p=0;p<factoryCount;++p)if(counts[p]){
+            std::array<int,5> n{};for(int l=0;l<counts[p];++l)++n[settings[p][l].role];
+            if(n[RoundRobin]==1||n[VelocityLow]!=n[VelocityHigh]||n[VelocityLow]>1||n[ReleaseSample]>1||n[ReleaseSample]==counts[p])return false;
+        }
         if(streaming)for(auto& source:records)for(auto& rec:source){
             // Existing mono Factory remains resident. Stream only extended long samples.
             if(!rec.offset||rec.length<=2*frames)continue;
@@ -233,6 +259,7 @@ public:
     int sourceFor(int p,int l)const{return counts[p]?settings[p][l].source:source(p,l);}
     bool customPatch(int p)const{return counts[p]!=0;}
     LayerSettings layerSettings(int p,int l)const{return settings[p][l];}
+    std::array<float,maxLayers> weights(int p,int velocity,uint32_t sequence)const{return articulationWeights(settings[p],counts[p],velocity,sequence);}
     Region region(int p,int l,int z,int v)const{return regions[sourceFor(p,l)][z*velocities+v];}
     int layers()const{return active>=0?slots[active].layers:0;}
     int band(double step)const{
@@ -255,7 +282,6 @@ public:
         const auto& coeff=kernel[b][phase];float x=0;
         const int first=i-(taps/2-1);
         if(z.info.streamId>=0){
-            stream.prefetch(z.info,pos);
             if(first+taps>residentFrames(z.info))return stream.sample(z.info,i,channel,coeff);
         }
         if(first>=0&&first+taps<=len){

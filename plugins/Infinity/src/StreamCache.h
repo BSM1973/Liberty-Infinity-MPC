@@ -21,17 +21,24 @@ private:
     struct Recent{uint32_t key=0,epoch=0;};
     std::unique_ptr<Page[]> pages;
     std::array<uint32_t,queueSize> queue{};
-    std::array<Recent,recentSize> recent{}; // producer only
+    std::array<std::array<Recent,4>,recentSize/4> recent{}; // producer only
     std::atomic<uint32_t> head{0},tail{0},epoch{1},misses{0},drops{0},errors{0};
     static unsigned hash(uint32_t x){x^=x>>16;x*=0x7feb352du;x^=x>>15;x*=0x846ca68bu;return x^(x>>16);}
     static uint32_t makeKey(int id,int page){return (uint32_t(id+1)<<pageBits)|uint32_t(page);}
     static unsigned setFor(uint32_t key){return (hash(key)&(sets-1))*ways;}
     void enqueue(uint32_t key)noexcept{
-        const uint32_t e=epoch.load(std::memory_order_relaxed);auto& r=recent[hash(key)&(recentSize-1)];
-        if(r.key==key&&r.epoch==e)return;
+        const uint32_t e=epoch.load(std::memory_order_relaxed);
+        auto& group=recent[hash(key)&(recentSize/4-1)];Recent* entry=nullptr;
+        for(auto& r:group){if(r.key==key&&r.epoch==e)return;if(r.epoch!=e&&!entry)entry=&r;}
+        // Bound requests to four distinct keys per bucket per audio block,
+        // rather than repeatedly evicting the deduplication record.
+        if(!entry){drops.fetch_add(1,std::memory_order_relaxed);return;}
+        *entry={key,e};
+        for(unsigned w=0;w<ways;++w){auto& p=pages[setFor(key)+w];
+            if(p.state.load(std::memory_order_acquire)>=2&&p.key.load(std::memory_order_relaxed)==key)return;}
         const uint32_t h=head.load(std::memory_order_relaxed),t=tail.load(std::memory_order_acquire);
         if(h-t>=queueSize){drops.fetch_add(1,std::memory_order_relaxed);return;}
-        queue[h&(queueSize-1)]=key;head.store(h+1,std::memory_order_release);r={key,e};
+        queue[h&(queueSize-1)]=key;head.store(h+1,std::memory_order_release);
     }
     bool fill(Page& p,std::FILE* f,const SampleRecord& rec,int page){
         const int first=page*pageFrames-guard;
