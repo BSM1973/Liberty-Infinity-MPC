@@ -1,4 +1,4 @@
-# Liberty Infinity — MPC ROMpler v0.8.0
+# Liberty Infinity — MPC ROMpler v0.8.1
 
 Plugin principal MPC ARM32/ARM64, MPC OS 3.10.1+ External Plugin Support bêta. Application macOS ARM64 de test, même DSP et banque. Pas un AU.
 
@@ -31,3 +31,7 @@ Banque HD identique. Mise en cache des pas de lecture et bandes sinc à la créa
 ## Professional ROMpler (v0.8.0, first import stage)
 
 Offline importer `tools/import_multisamples.py` (Python, numpy, scipy) creates a separate Factory.pcm and Factory.pcm.map from user-owned WAV files. Use the sample manifest in docs. Mono conversion for stereo WAV, polyphase conversion, monophonic root detection or explicit root, key/velocity range mapping to existing five roots/four velocity bins, optional shared peak normalization, loop points in original WAV frames, and up to four source layers with independent gain/pan/tuning. The runtime reads the optional map at startup, uses per-layer settings and loop regions, and keeps the original factory path when no map is present. Stop the host and install both files together in Content (on Mac, in the app Resources/Content; this invalidates the ad-hoc signature, rebuild/re-sign for testing). Back up original content; a replaced source slot can also affect factory presets which reuse it. Names and preset numbers remain factory names; no graphical editor yet. Two seconds maximum per zone after conversion, longer samples truncated, loops exceeding the limit rejected; stereo downmix can cancel out-of-phase material. No arbitrary runtime mapping, no streaming and no new acoustic recordings. No on-device measurements yet. The importer is an external development utility, not a native MPC browser.
+
+## Professional ROMpler (v0.8.1)
+
+Imported source regions now apply even when a preset retains factory layer settings (no L record). Mixed custom and factory layers retain their own playback regions, and factory gain/pan/detune remain unchanged when no layer override is present. The bank reader decodes PCM24 in chunks of 16,384 samples (48 KiB temporary buffer instead of 5,292,000 bytes per source); the decoded caches are unchanged, and this theoretical scratch reduction is not an on-device RAM measurement. Added native regression cases for imported one-shots and loops without explicit patch overrides. The fixed-grid offline importer, two-second mono zone limit, factory names and Black Gold UI remain unchanged. No new acoustic recordings or device/listening validation are included.

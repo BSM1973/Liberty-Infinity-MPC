@@ -74,16 +74,21 @@ class Bank {
     static constexpr double pi=3.14159265358979323846;
     bool readSlot(Slot& s,int p){
         std::FILE* f=std::fopen(path.c_str(),"rb");if(!f)return false;
-        std::vector<unsigned char> raw(patchBytes);
+        // Decode bounded chunks off the audio thread, rather than an entire 5.3 MB source.
+        constexpr size_t chunkSamples=16384;
+        std::vector<unsigned char> raw(chunkSamples*3);
         bool ok=true;int count=counts[p]?counts[p]:layerCount(p);
         for(int l=count;l<maxLayers;++l)std::vector<int32_t>().swap(s.pcm[l]);
         for(int l=0;l<count&&ok;++l){
             auto& d=s.pcm[l];d.resize(size_t(zones)*velocities*frames);
-            ok=std::fseek(f,long(headerSize+size_t(sourceFor(p,l))*patchBytes),SEEK_SET)==0
-                &&std::fread(raw.data(),1,raw.size(),f)==raw.size();
-            if(ok)for(size_t i=0;i<d.size();++i){
-                uint32_t x=uint32_t(raw[i*3])|(uint32_t(raw[i*3+1])<<8)|(uint32_t(raw[i*3+2])<<16);
-                d[i]=x>=0x800000?int32_t(x)-0x1000000:int32_t(x);
+            ok=std::fseek(f,long(headerSize+size_t(sourceFor(p,l))*patchBytes),SEEK_SET)==0;
+            for(size_t offset=0;ok&&offset<d.size();offset+=chunkSamples){
+                const size_t n=std::min(chunkSamples,d.size()-offset);
+                ok=std::fread(raw.data(),3,n,f)==n;
+                if(ok)for(size_t i=0;i<n;++i){
+                    uint32_t x=uint32_t(raw[i*3])|(uint32_t(raw[i*3+1])<<8)|(uint32_t(raw[i*3+2])<<16);
+                    d[offset+i]=x>=0x800000?int32_t(x)-0x1000000:int32_t(x);
+                }
             }
         }
         std::fclose(f);if(ok){s.patch=p;s.layers=count;}return ok;

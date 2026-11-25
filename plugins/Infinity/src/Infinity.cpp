@@ -146,7 +146,7 @@ public:
                 const bool loop=factory[v.patch].loop;
                 if(!v.custom&&!loop&&v.pos>=end){v.stage=0;continue;}
                 if(!v.custom&&loop&&v.pos>=end)v.pos=start+xf+std::fmod(v.pos-end,double(end-start-xf));
-                const int k=int(v.pos);
+                const int k=v.custom?0:int(v.pos);
                 float x=0,y=0; bool any=false;
                 for(int layer=0;layer<v.layers;++layer){
                     double& pos=v.layerPos[layer];
@@ -167,6 +167,7 @@ public:
                 }
                 if(v.custom&&!any){v.stage=0;continue;}
                 v.pos+=v.step*bendRatio;
+                if(v.custom)v.pos=std::min(v.pos,double(frames)*2); // Bound elapsed position for sustained custom loops.
                 if(v.stage==1) {v.env=std::min(1.f,v.env+a);if(v.env>=1) v.stage=2;}
                 else if(v.stage==2) {v.env=std::max(s,v.env-d);if(v.env<=s)v.stage=3;}
                 else if(v.stage==3) v.env=s;
@@ -225,7 +226,7 @@ private:
     std::atomic<int> activeVoices{0};
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=800;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=801;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){
@@ -243,18 +244,20 @@ private:
             if((x.stage==4&&v->stage!=4)||(x.stage==4)==(v->stage==4)&&x.age<v->age)v=&x;
         }
         *v=Voice{};v->note=note;v->channel=ch;v->patch=p;v->zone=z;v->vel=vel/127.f;
-        v->velocityLayer=std::min(3,(vel-1)/32);v->layers=bank.layers();v->custom=bank.customPatch(p);
+        v->velocityLayer=std::min(3,(vel-1)/32);v->layers=bank.layers();const bool mappedPatch=bank.customPatch(p);v->custom=mappedPatch;
         v->step=rate/sr*std::pow(2.,(note-roots[z])/12.);v->stage=1;v->held=true;v->age=++counter;
         for(int l=0;l<v->layers;++l){
             float pan=v->layers==1?.5f:l==0?.5f:l==1?.15f:l==2?.85f:.65f;
             float weight=(l==0?1.f:.45f)/(1.f+.45f*(v->layers-1));
-            if(v->custom){
+            v->ratio[l]=1.0+(l==1?.002:l==2?-.003:l==3?.005:0);
+            if(mappedPatch){
                 auto s=bank.layerSettings(p,l);
                 pan=(s.pan+1.f)*.5f;weight=s.gain;
                 v->ratio[l]=std::pow(2.,s.cents/1200.);
-                v->region[l]=bank.region(p,l,z,v->velocityLayer);
-                if(!v->region[l].custom){v->region[l]={rate*3/4,frames-16,factory[p].loop?rate/25:0,false};}
             }
+            v->region[l]=bank.region(p,l,z,v->velocityLayer);
+            if(v->region[l].custom)v->custom=true;
+            else v->region[l]={rate*3/4,frames-16,factory[p].loop?rate/25:0,false};
             v->layerLeft[l]=weight*(1-pan)*2;v->layerRight[l]=weight*pan*2;
         }
         updateSteps(*v);
