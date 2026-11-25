@@ -33,7 +33,9 @@ struct SVF {
 struct Voice {
     int note=-1, patch=0, zone=0, channel=0;
     double pos=0, step=1;
-    int velocityLayer=0,layers=1; std::array<double,4> layerPos{};
+    int velocityLayer=0,layers=1; std::array<double,4> layerPos{},layerStep{};
+    std::array<int,4> layerBand{};
+    std::array<float,4> layerLeft{},layerRight{};
     float vel=0, env=0, l=0, r=0, releaseStep=0;
     int stage=0;
     float fe=0,fr=0; int fs=1; SVF fl,fright;
@@ -102,9 +104,17 @@ public:
     bool usingPackedBank() const {return bank.good();}
     int loadedZones() const {return bank.good()?patches*zones*hd::velocities:0;}
     void prepare(double sampleRate,int) override { sr=std::clamp(sampleRate,8000.0,192000.0); for(auto& b:lines)b.assign(size_t(sr*2)+4,0); reset(); }
-    void reset() override { activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
+    void reset() override { pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
     void process(mpc::ProcessContext& ctx) override {
-        if(bank.select(getInt(Sound))) {voices={};activeVoices.store(0,std::memory_order_relaxed);}
+        const int desired=std::clamp(getInt(Sound),0,patches-1);
+        if(desired!=requested){requested=desired;pending={};}
+        bank.requestPatch(desired);
+        if(bank.loadedPatch()!=desired && switchGain<=0.f && bank.select(desired)){voices={};activeVoices.store(0,std::memory_order_relaxed);}
+        const bool waiting=bank.loadedPatch()!=desired;
+        if(!waiting)for(int ch=0;ch<16;++ch)for(int note=0;note<128;++note)if(pending[ch][note]){
+            startVoice(ch,note,pending[ch][note],desired);pending[ch][note]=0;
+        }
+        const float switchStep=1.f/std::max(1.f,float(sr)*.005f);
         const float a=1.f/std::max(1.f,float(sr)*get(Attack)*.001f);
         const float d=1.f/std::max(1.f,float(sr)*get(Decay)*.001f);
         const float s=get(Sustain)*.01f;
@@ -128,7 +138,7 @@ public:
         const float target=std::pow(10.f,get(Volume)*.05f)*.25f;
         int event=0;
         for(int i=0;i<ctx.numFrames;++i) {
-            while(event<ctx.numMidiEvents && ctx.midi[event].sampleOffset<=i) midi(ctx.midi[event++]);
+            while(event<ctx.numMidiEvents && ctx.midi[event].sampleOffset<=i) midi(ctx.midi[event++],desired,waiting);
             float l=0,r=0;
             for(auto& v:voices) {
                 if(!v.stage) continue;
@@ -140,18 +150,15 @@ public:
                 float x=0,y=0;
                 for(int layer=0;layer<v.layers;++layer){
                     double& pos=v.layerPos[layer];
-                    const double ratio=1.0+(layer==1?.002:layer==2?-.003:layer==3?.005:0);
-                    const double step=v.step*bendRatio*ratio;
+                    const double step=v.layerStep[layer];
                     if(loop&&pos>=end)pos=start+xf+std::fmod(pos-end,double(end-start-xf));
                     if(pos>=end)continue;
-                    int band=bank.band(step);
+                    int band=v.layerBand[layer];
                     float value=bank.sample(layer,v.zone,v.velocityLayer,pos,band);
                     if(loop&&pos>=end-xf){float w=float((pos-(end-xf))/xf);w=w*w*(3-2*w);
                         value=value*(1-w)+bank.sample(layer,v.zone,v.velocityLayer,start+pos-(end-xf),band)*w;}
                     pos+=step;
-                    float pan=v.layers==1?.5f:layer==0?.5f:layer==1?.15f:layer==2?.85f:.65f;
-                    float weight=(layer==0?1.f:.45f)/(1.f+.45f*(v.layers-1));
-                    x+=value*weight*(1-pan)*2;y+=value*weight*pan*2;
+                    x+=value*v.layerLeft[layer];y+=value*v.layerRight[layer];
                 }
                 v.pos+=v.step*bendRatio;
                 if(v.stage==1) {v.env=std::min(1.f,v.env+a);if(v.env>=1) v.stage=2;}
@@ -170,6 +177,8 @@ public:
                 const float accent=ampOn?1+spike*std::max(0.f,1-float(v.pos)/2400.f):1;
                 l+=xl*ae*v.vel*fade*accent;r+=yr*ae*v.vel*fade*accent;
             }
+            switchGain=waiting?std::max(0.f,switchGain-switchStep):std::min(1.f,switchGain+switchStep);
+            l*=switchGain;r*=switchGain;
             if(mf){
                 float* channels[]={&l,&r};for(int c=0;c<2;++c){
                     float v=*channels[c]; if(ms==0&&(mt==0||mt==1)){auto& state=master[c][0].s2;state+=(mg/(1+mg))*(v-state);v=mt==0?state:v-state;}
@@ -179,7 +188,7 @@ public:
             }
             if(!lines[0].empty()){
                 phase+=.7f/float(sr);if(phase>=1)phase-=1;
-                float wave=std::sin(6.2831853f*phase);
+                float wave=(de&&dmod!=0)||(rv&&rmod!=0)?std::sin(6.2831853f*phase):0.f;
                 if(de){
                     float dl=read(0,ds+wave*dmod*sr*.003f),dr=read(1,ds*(dt==1?1.12f:1)-wave*dmod*sr*.003f);
                     dl=tone(dl,0,dlo,dhi);dr=tone(dr,1,dlo,dhi);
@@ -210,27 +219,49 @@ private:
     std::atomic<int> activeVoices{0};
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=600;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=700;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
-    void midi(const mpc::MidiEvent& e){
+    void updateSteps(Voice& v){
+        for(int l=0;l<v.layers;++l){
+            const double ratio=1.0+(l==1?.002:l==2?-.003:l==3?.005:0);
+            v.layerStep[l]=v.step*bendRatio*ratio;
+            v.layerBand[l]=bank.band(v.layerStep[l]);
+        }
+    }
+    void startVoice(int ch,int note,int vel,int p){
+        if(bank.loadedPatch()!=p||vel<=0)return;
+        int z=0;for(int j=1;j<zones;++j)if(std::abs(note-roots[j])<std::abs(note-roots[z]))z=j;
+        Voice* v=&voices[0];
+        for(auto& x:voices){
+            if(!x.stage){v=&x;break;}
+            if((x.stage==4&&v->stage!=4)||(x.stage==4)==(v->stage==4)&&x.age<v->age)v=&x;
+        }
+        *v=Voice{};v->note=note;v->channel=ch;v->patch=p;v->zone=z;v->vel=vel/127.f;
+        v->velocityLayer=std::min(3,(vel-1)/32);v->layers=bank.layers();
+        v->step=rate/sr*std::pow(2.,(note-roots[z])/12.);v->stage=1;v->held=true;v->age=++counter;
+        for(int l=0;l<v->layers;++l){
+            float pan=v->layers==1?.5f:l==0?.5f:l==1?.15f:l==2?.85f:.65f;
+            float weight=(l==0?1.f:.45f)/(1.f+.45f*(v->layers-1));
+            v->layerLeft[l]=weight*(1-pan)*2;v->layerRight[l]=weight*pan*2;
+        }
+        updateSteps(*v);
+    }
+    void midi(const mpc::MidiEvent& e,int desired,bool waiting){
         if(e.isNoteOn()){
-            const int p=std::max(0,std::min(patches-1,getInt(Sound)));
-            int z=0;for(int j=1;j<zones;++j)if(std::abs(e.note()-roots[j])<std::abs(e.note()-roots[z]))z=j;
-            if(bank.loadedPatch()!=p)return;
-            Voice* v=&voices[0];
-            for(auto& x:voices){if(!x.stage){v=&x;break;}if(x.age<v->age)v=&x;}
-            *v=Voice{};v->note=e.note();v->channel=e.channel();v->patch=p;v->zone=z;v->vel=e.velocity()/127.f;v->velocityLayer=std::min(3,(e.velocity()-1)/32);v->layers=bank.layers();
-            v->step=rate/sr*std::pow(2.,(e.note()-roots[z])/12.);v->stage=1;v->held=true;v->age=++counter;
+            if(waiting)pending[e.channel()][e.note()]=uint8_t(e.velocity());
+            else startVoice(e.channel(),e.note(),e.velocity(),desired);
         }else if(e.isNoteOff()){
+            pending[e.channel()][e.note()]=0;
             for(auto& v:voices)if(v.stage && v.note==e.note() && v.channel==e.channel()){v.held=false;if((!pedal||v.channel==15)&&v.stage!=4)v.stage=4;}
         }else if(e.isAllNotesOff()){
-            for(auto& v:voices)v=Voice{};
+            pending={};for(auto& v:voices)v=Voice{};
             pedal=false;
         }else if(e.isController()&&e.controller()==64){
             pedal=e.controllerValue()>=64;
             if(!pedal)for(auto& v:voices)if(v.stage&&!v.held&&v.stage!=4)v.stage=4;
         }else if(e.isPitchBend()){
             bend=e.pitchBend();bendRatio=std::pow(2.,bend/(8192.*6.));
+            for(auto& v:voices)if(v.stage)updateSteps(v);
         }
     }
     float read(int n,float samples) const {
@@ -245,6 +276,8 @@ private:
     hd::Bank bank;
     std::array<Voice,voiceLimit> voices{};
     double sr=44100,bendRatio=1;
+    std::array<std::array<uint8_t,128>,16> pending{};
+    int requested=-1;float switchGain=1.f;
     int bend=0;bool pedal=false;uint64_t counter=0;float gain=0;
 };
 #ifndef INFINITY_STANDALONE

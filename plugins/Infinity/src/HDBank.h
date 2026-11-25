@@ -110,9 +110,10 @@ public:
     bool good()const{return valid;}
     int loadedPatch()const{return loaded.load(std::memory_order_acquire);}
     // Only called from process. Slot ownership prevents any concurrent vector mutation.
+    void requestPatch(int p){if(valid)request.store(p,std::memory_order_release);}
     bool select(int p){
         if(!valid)return false;
-        request.store(p,std::memory_order_release);
+        requestPatch(p);
         if(active>=0&&slots[active].patch==p)return false;
         for(int i=0;i<2;++i){
             int expected=2;
@@ -134,7 +135,11 @@ public:
         const size_t base=(size_t(zone)*velocities+velocity)*frames;
         int i=int(pos);int phase=std::clamp(int((pos-i)*phases),0,phases-1);
         const auto& coeff=kernel[b][phase];float x=0;
-        for(int t=0;t<taps;++t)x+=float(pcm[base+std::clamp(i+t-(taps/2-1),0,frames-1)])*coeff[t];
+        const int first=i-(taps/2-1);
+        if(first>=0&&first+taps<=frames){
+            const int32_t* data=pcm.data()+base+first;
+            for(int t=0;t<taps;++t)x+=float(data[t])*coeff[t];
+        }else for(int t=0;t<taps;++t)x+=float(pcm[base+std::clamp(first+t,0,frames-1)])*coeff[t];
         return x*(1.f/8388608.f);
     }
 };

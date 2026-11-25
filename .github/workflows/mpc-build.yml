@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -26,19 +28,34 @@ jobs:
       - run: python sdk/tools/build.py plugins/Infinity --target native
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/factory.cpp -o /tmp/infinity-test -ldl
       - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-test | tee factory-validation.txt
+      - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/switching.cpp -o /tmp/infinity-switch -ldl
+      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-switch | tee switching-validation.txt
+      - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/performance.cpp -o /tmp/infinity-perf -ldl
+      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-perf | tee performance-v07.csv
+      - run: |
+          git archive 986a6694bef0d1b84265197aa0e6e146082778d2 plugins/Infinity/src | tar -x -C /tmp
+          mkdir -p /tmp/tests
+          cp tests/performance.cpp /tmp/tests/
+          c++ -std=c++17 -O2 -pthread -I "$PWD/sdk/framework" /tmp/tests/performance.cpp -o /tmp/infinity-perf-base -ldl
+          set -o pipefail
+          MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-perf-base | tee performance-v06.csv
       - run: python tools/make_retro_skin.py
       - run: python tools/enable_sdk_threads.py
       - run: python sdk/tools/build.py plugins/Infinity
       - run: python sdk/tools/package.py plugins/Infinity
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-MPC-v0.6.0-EXPERIMENTAL
+          name: Liberty-Infinity-MPC-v0.7.0-EXPERIMENTAL
           path: plugins/Infinity/dist/*.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-v0.6.0-Factory-Validation
-          path: factory-validation.txt
+          name: Liberty-Infinity-v0.7.0-Factory-and-Performance-Validation
+          path: |
+            factory-validation.txt
+            switching-validation.txt
+            performance-v06.csv
+            performance-v07.csv
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -64,6 +81,6 @@ jobs:
       - run: bash macos/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-Mac-Test-v0.6.0-arm64
+          name: Liberty-Infinity-Mac-Test-v0.7.0-arm64
           path: dist/*.zip
           if-no-files-found: error
