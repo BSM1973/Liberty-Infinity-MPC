@@ -1,4 +1,4 @@
-# Liberty Infinity — MPC ROMpler v0.5.0
+# Liberty Infinity — MPC ROMpler v0.6.0
 
 Plugin principal MPC ARM32/ARM64, MPC OS 3.10.1+ External Plugin Support bêta. Application macOS ARM64 de test, même DSP et banque. Pas un AU.
 
@@ -19,3 +19,7 @@ Filter Modifier et Amp Modifier : knobs 36 px au lieu de 50, interrupteurs 36 ×
 ## Factory Browser Pro
 
 Sur Mac : recherche instantanée nom/catégorie, filtre de styles indicatif dérivé des familles de sons, favoris persistants, pagination et navigation entre sons filtrés, préécoute de 0,85 s, sauvegarde/chargement personnels via NSUserDefaults (38 paramètres réglables et identifiant stable de la source), voyant MIDI et compteur de voix réel. Sur MPC : navigateur et sauvegarde natifs du firmware (.xpl), liste Sound et Q-Links ; le SDK actuel ne fournit pas de champ de recherche texte ou de gestionnaire de favoris personnalisés documenté. Les presets Mac ne sont pas des .xpl. Les deux cibles chargent désormais Factory.pcm (un fichier séquentiel, 500 zones identiques, format contrôlé), avec fallback sur l'ancienne structure si disponible. Aucun changement de samples ; empreintes vérifiées lors de l'assemblage. RAM PCM inchangée, gain de temps non mesuré sur matériel. Aperçu statique Mac uniquement ; test visuel et MIDI physique nécessaires.
+
+## Premium Sound Engine (v0.6)
+
+Remplacement de la banque précédente par 2000 zones mono PCM24 44,1 kHz (100 sources × 5 notes × 4 niveaux de vélocité), 2 secondes par zone, 529,2 Mo sur disque. Les presets superposent de 1 à 4 sources distinctes du même groupe, avec panoramique et légère transposition ; stéréo à la sortie, pas des prises stéréo. Deux caches de presets décodés en int32, maximum théorique d'environ 56,45 Mo PCM par instance, hors DSP et buffers temporaires. Chargement asynchrone pendant l'utilisation, premier son chargé dans le constructeur ; le changement de preset coupe les anciennes voix lorsque le nouveau cache est prêt, les notes reçues avant la disponibilité du nouveau preset sont ignorées. Aucun accès fichier dans process(). Source synthétique originale rendue hors ligne, notamment pianos à cordes raides, ensembles, supersaws ; ce ne sont pas des enregistrements acoustiques. Interpolation sinc fenêtrée 12 taps et 7 bandes anti-alias, filtrage hors ligne, fondu de boucle 40 ms. 64 notes sur Mac, plafond prudent 32 ARM64 MPC et 24 ARM32 ; la polyphonie réelle et l'aliasing restent à mesurer sur matériel. Tests de chaque preset/racine/vélocité et stress 64 notes sur hôte CI. Les résultats ne valent pas validation d'écoute ou certification temps réel MPC. La banque de la v0.5 n'est plus compatible avec le nouveau moteur ; réinstaller le dossier complet.

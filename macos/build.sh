@@ -14,7 +14,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>com.libertymusicsoftware.infinitympctest</string>
 <key>CFBundleName</key><string>Liberty Infinity MPC Test</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.5.0</string>
+<key>CFBundleShortVersionString</key><string>0.6.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST

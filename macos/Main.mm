@@ -132,11 +132,11 @@ static const char *keyMap="awsedftgyhujkolp";
     browserButton(@"Enregistrer",NSMakeRect(613,288,112,20));
     browserButton(@"Mes presets",NSMakeRect(730,288,112,20));
     browserButton([favorites containsObject:patchName(current)]?@"Favori : oui":@"Favori : non",NSMakeRect(847,288,114,20),[favorites containsObject:patchName(current)]);
-    text(userName?:patchName(current),NSMakeRect(500,312,461,19),14,ink(),true);
+    text(synth->loadedPatch()!=current?@"Chargement du son...":(userName?:patchName(current)),NSMakeRect(500,312,461,19),14,ink(),true);
     [(midiFlash.load()>0?gold():[NSColor colorWithWhite:.16 alpha:1]) setFill];
     [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(1047,414,8,8)]fill];
     text(@"MIDI",NSMakeRect(1060,410,45,16),11,ink());
-    text([NSString stringWithFormat:@"%d / 32 voix",synth->activeVoiceCount()],NSMakeRect(1046,433,95,18),11,ink());
+    text([NSString stringWithFormat:@"%d / %d voix",synth->activeVoiceCount(),synth->maxVoices()],NSMakeRect(1046,433,95,18),11,ink());
     for(int c=0;c<2;++c){
         float p=c?peakR.load():peakL.load();
         int n=std::clamp(int((20*std::log10(std::max(p,.0001f))+54)/6),0,9);
@@ -169,7 +169,7 @@ static const char *keyMap="awsedftgyhujkolp";
         else if(p.x>=891)[self stepPreset:1];return;
     }
     if(p.y>=288&&p.y<308&&p.x>=500&&p.x<961){
-        if(p.x<608)auditionCommand.store(auditionPlaying.load()?-1:1);
+        if(p.x<608&&synth->loadedPatch()==current)auditionCommand.store(auditionPlaying.load()?-1:1);
         else if(p.x>=613&&p.x<725)[self saveUserPreset];
         else if(p.x>=730&&p.x<842)[self showUserPresets:e];
         else if(p.x>=847)[self toggleFavorite:current];return;
@@ -243,7 +243,7 @@ static const char *keyMap="awsedftgyhujkolp";
     if(!controls||!panel||faces.count!=7){NSLog(@"Missing resources");[NSApp terminate:nil];return;}
     synth=std::make_unique<Infinity>();synth->setProgram(0);
     NSUserDefaults *d=NSUserDefaults.standardUserDefaults;favorites=[NSMutableSet setWithArray:[d arrayForKey:@"InfinityFavoritesV1"]?:@[]];userPresets=[[d dictionaryForKey:@"InfinityUserPresetsV1"] mutableCopy]?:[NSMutableDictionary new];rebuild();
-    if(synth->loadedZones()!=factoryCount*5){NSAlert *a=[NSAlert new];a.messageText=@"Banque sonore incomplète";[a runModal];[NSApp terminate:nil];return;}
+    if(synth->loadedZones()!=factoryCount*5*4){NSAlert *a=[NSAlert new];a.messageText=@"Banque sonore incomplète";[a runModal];[NSApp terminate:nil];return;}
     if(MIDIClientCreate(CFSTR("Liberty Infinity"),nullptr,nullptr,&midiClient)==noErr && MIDIInputPortCreate(midiClient,CFSTR("Input"),midiRead,nullptr,&midiPort)==noErr){for(ItemCount i=0;i<MIDIGetNumberOfSources();++i)MIDIPortConnectSource(midiPort,MIDIGetSource(i),nullptr);}
     audio=[AVAudioEngine new];
     AVAudioFormat *hardware=[audio.outputNode inputFormatForBus:0];

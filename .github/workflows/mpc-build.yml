@@ -22,16 +22,23 @@ jobs:
       - run: python tools/generate_samples.py
       - run: python tools/pack_factory.py
       - run: python tools/retro_assets.py
+      - run: python tools/enable_sdk_threads.py
       - run: python sdk/tools/build.py plugins/Infinity --target native
-      - run: c++ -std=c++17 -O2 -I sdk/framework tests/factory.cpp -o /tmp/infinity-test -ldl
-      - run: MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-test
+      - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/factory.cpp -o /tmp/infinity-test -ldl
+      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-test | tee factory-validation.txt
       - run: python tools/make_retro_skin.py
+      - run: python tools/enable_sdk_threads.py
       - run: python sdk/tools/build.py plugins/Infinity
       - run: python sdk/tools/package.py plugins/Infinity
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-MPC-v0.5.0-EXPERIMENTAL
+          name: Liberty-Infinity-MPC-v0.6.0-EXPERIMENTAL
           path: plugins/Infinity/dist/*.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Liberty-Infinity-v0.6.0-Factory-Validation
+          path: factory-validation.txt
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -57,6 +64,6 @@ jobs:
       - run: bash macos/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-Mac-Test-v0.5.0-arm64
+          name: Liberty-Infinity-Mac-Test-v0.6.0-arm64
           path: dist/*.zip
           if-no-files-found: error
