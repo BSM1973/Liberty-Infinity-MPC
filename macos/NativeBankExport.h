@@ -82,7 +82,7 @@ inline void append(std::FILE* out,NSDictionary *z,WAV& a,double scale){
         }require(std::fwrite(raw.data(),1,k,out)==k,"Écriture PCM impossible.");done+=buf.frameLength;
     }
 }
-inline NSString *exportBank(NSDictionary *manifest,NSString *base,NSString *dest){
+inline NSString *exportBank(NSDictionary *manifest,NSString *base,NSString *dest,bool streaming=false){
     NSFileManager *fm=NSFileManager.defaultManager;NSString *out=[dest stringByAppendingPathComponent:@"Factory.pcm"],*map=[out stringByAppendingString:@".map"];
     NSString *tmp=[dest stringByAppendingPathComponent:[@".infinity-" stringByAppendingString:NSUUID.UUID.UUIDString]];
     NSString *bank=[tmp stringByAppendingPathComponent:@"Factory.pcm"],*mapping=[bank stringByAppendingString:@".map"];
@@ -94,7 +94,7 @@ inline NSString *exportBank(NSDictionary *manifest,NSString *base,NSString *dest
         require([fm copyItemAtPath:base toPath:bank error:nil],"Copie de la banque Factory impossible.");
         std::unique_ptr<std::FILE,decltype(&std::fclose)> f(std::fopen(bank.fileSystemRepresentation,"r+b"),&std::fclose);
         require(bool(f)&&std::fseek(f.get(),0,SEEK_END)==0&&std::ftell(f.get())==long(hd::legacyBytes),"La base doit être la banque Factory originale.");
-        std::ostringstream records;records.imbue(std::locale::classic());records<<std::setprecision(10)<<"LINFMAP2\n";
+        std::ostringstream records;records.imbue(std::locale::classic());records<<std::setprecision(10)<<(streaming?"LINFMAP3\n":"LINFMAP2\n");
         for(NSDictionary *p in manifest[@"patches"]){int patch=field(p,@"patch",0,99),i=0;
             for(NSDictionary *l in p[@"layers"]){
                 require(i<4,"Quatre couches maximum.");records<<"L "<<patch<<" "<<i++<<" "<<field(l,@"source",0,99)<<" "<<std::pow(10.,number(l,@"gain_db",-60,6)/20.)<<" "<<number(l,@"pan",-1,1)<<" "<<number(l,@"cents",-1200,1200)<<"\n";

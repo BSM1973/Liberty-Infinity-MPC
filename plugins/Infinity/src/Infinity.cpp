@@ -34,7 +34,7 @@ struct Voice {
     int note=-1, patch=0, zone=0, channel=0;
     double pos=0, step=1;
     int velocityLayer=0,layers=1; bool custom=false; std::array<hd::Region,4> region{}; std::array<double,4> ratio{}; std::array<double,4> layerPos{},layerStep{};
-    std::array<int,4> layerBand{},layerChannels{};
+    std::array<int,4> layerBand{},layerChannels{},layerStream{};
     std::array<float,4> layerLeft{},layerRight{};
     float vel=0, env=0, l=0, r=0, releaseStep=0;
     int stage=0;
@@ -105,7 +105,13 @@ public:
     int loadedZones() const {return bank.good()?patches*zones*hd::velocities:0;}
     void prepare(double sampleRate,int) override { sr=std::clamp(sampleRate,8000.0,192000.0); for(auto& b:lines)b.assign(size_t(sr*2)+4,0); reset(); }
     void reset() override { pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
+    uint32_t streamUnderruns()const{return bank.streamUnderruns();}
+    uint32_t streamQueueDrops()const{return bank.streamQueueDrops();}
+    uint32_t streamIOErrors()const{return bank.streamIOErrors();}
+    size_t activePCMBytes()const{return bank.activePCMBytes();}
+    size_t streamPageBytes()const{return bank.streamPageBytes();}
     void process(mpc::ProcessContext& ctx) override {
+        bank.beginBlock();
         const int desired=std::clamp(getInt(Sound),0,patches-1);
         if(desired!=requested){requested=desired;pending={};}
         bank.requestPatch(desired);
@@ -154,6 +160,8 @@ public:
                     const auto region=v.region[layer];
                     const int ls=v.custom?region.start:start,le=v.custom?region.end:end,lx=v.custom?region.xf:xf;
                     const bool looping=v.custom?lx>0:loop;
+                    if(v.layerStream[layer]&&looping&&pos>=le-lx-3*hd::StreamCache::pageFrames)
+                        bank.prefetch(layer,v.zone,v.velocityLayer,ls);
                     if(looping&&pos>=le)pos=ls+lx+std::fmod(pos-le,double(le-ls-lx));
                     if(pos>=le)continue;
                     any=true;
@@ -229,7 +237,7 @@ private:
     std::atomic<int> activeVoices{0};
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=901;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=902;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){
@@ -259,7 +267,7 @@ private:
                 v->ratio[l]=std::pow(2.,s.cents/1200.);
             }
             const auto rec=bank.sampleRecord(l,z,v->velocityLayer);
-            v->layerChannels[l]=rec.channels;
+            v->layerChannels[l]=rec.channels;v->layerStream[l]=rec.streamId>=0;
             v->ratio[l]*=double(rec.sampleRate)/rate*std::pow(2.,(roots[z]-rec.root)/12.);
             v->region[l]=bank.region(p,l,z,v->velocityLayer);
             if(v->region[l].custom)v->custom=true;

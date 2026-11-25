@@ -84,7 +84,7 @@
 @implementation InfinityStudio {
     NSPopUpButton *layerMenu,*zoneMenu;
     NSTextField *patch,*source,*gainField,*panField,*tune,*root,*keyLo,*keyHi,*velLo,*velHi,*loopStart,*loopEnd,*status;
-    NSButton *loop,*normalize,*mute,*solo;
+    NSButton *loop,*normalize,*mute,*solo,*streamOption;
     InfinityWave *wave;
     InfinityKeys *keys;
     NSMutableArray<NSMutableDictionary*> *layers;
@@ -133,6 +133,7 @@
     [self button:@"Enregistrer JSON" x:16 y:452 w:165 action:@selector(saveManifest:)];
     [self button:@"Ouvrir JSON" x:188 y:452 w:140 action:@selector(openManifest:)];
     [self button:@"Exporter banque MPC" x:335 y:452 w:200 action:@selector(exportBank:)];
+    streamOption=[self check:@"Streaming disque (expérimental)" x:545 y:455 w:347];streamOption.state=NSControlStateValueOff;
     status=[self label:@"Déposez des fichiers WAV sur cette fenêtre." x:16 y:492 w:876];status.maximumNumberOfLines=3;status.frame=NSMakeRect(16,492,876,58);
     __weak InfinityStudio *weakSelf=self;wave.changed=^(AVAudioFramePosition a,AVAudioFramePosition b){[weakSelf setLoopA:a b:b];};
     [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];[self showLayer];return self;
@@ -214,7 +215,7 @@
 -(void)saveManifest:(id)sender{
     (void)sender;[self commitFields:nil];NSSavePanel *p=[NSSavePanel savePanel];p.nameFieldStringValue=@"Infinity-Studio.json";p.allowedFileTypes=@[@"json"];
     if([p runModal]!=NSModalResponseOK)return;
-    NSDictionary *doc=@{@"studio":@1,@"patch":@(patch.integerValue),@"layers":layers};NSError *err=nil;
+    NSDictionary *doc=@{@"studio":@1,@"patch":@(patch.integerValue),@"layers":layers,@"streaming":@(streamOption.state==NSControlStateValueOn)};NSError *err=nil;
     NSData *data=[NSJSONSerialization dataWithJSONObject:doc options:NSJSONWritingPrettyPrinted error:&err];
     if(data&&[data writeToURL:p.URL options:NSDataWritingAtomic error:&err])[self message:@"Projet enregistré (références WAV absolues)."];else [self message:err.localizedDescription];
 }
@@ -232,6 +233,7 @@
             id b=z[@"loop"];if(b&&(![b isKindOfClass:NSArray.class]||[b count]!=2||![b[0] isKindOfClass:NSNumber.class]||![b[1] isKindOfClass:NSNumber.class])){[self message:@"Boucle invalide."];return;}
         }
     }
+    streamOption.state=[doc[@"streaming"] isKindOfClass:NSNumber.class]&&[doc[@"streaming"] boolValue]?NSControlStateValueOn:NSControlStateValueOff;
     layers=doc[@"layers"];patch.integerValue=[doc[@"patch"] integerValue];selectedLayer=0;[layerMenu selectItemAtIndex:0];[self showLayer];
 }
 -(void)exportBank:(id)sender{
@@ -244,10 +246,11 @@
     dest.message=@"Dossier de destination vide pour Factory.pcm et Factory.pcm.map";
     if([dest runModal]!=NSModalResponseOK)return;
     NSString *folder=dest.URL.path,*base=[NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"Content/Factory.pcm"];
+    const bool streaming=streamOption.state==NSControlStateValueOn;
     exporting=YES;[self message:@"Export stéréo HD en cours…"];
     __weak InfinityStudio *weakSelf=self;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{@autoreleasepool{
-        NSString *failure=studioHD::exportBank(immutable,base,folder);
+        NSString *failure=studioHD::exportBank(immutable,base,folder,streaming);
         dispatch_async(dispatch_get_main_queue(),^{InfinityStudio *s=weakSelf;if(!s)return;s->exporting=NO;
             if(!failure)[s message:@"Export HD réussi. Arrêtez le MPC avant installation des deux fichiers."];
             else { [s message:@"Export échoué. Banque Factory intacte."];NSAlert *a=[NSAlert new];a.messageText=@"Export impossible";a.informativeText=failure;[a runModal];}

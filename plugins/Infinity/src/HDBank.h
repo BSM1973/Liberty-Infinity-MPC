@@ -39,12 +39,13 @@ inline int source(int p,int layer){
 struct LayerSettings { int source=-1; float gain=0,pan=0,cents=0; };
 struct Region { int start=0,end=frames-16,xf=0; bool custom=false; };
 struct SampleRecord {
-    uint64_t offset=0; int length=frames,channels=1,sampleRate=rate,root=60;
+    uint64_t offset=0; int length=frames,channels=1,sampleRate=rate,root=60,streamId=-1;
 };
+#include "StreamCache.h"
 struct DecodedZone { std::shared_ptr<std::vector<int32_t>> pcm; SampleRecord info; };
 struct Slot {
     std::atomic<int> state{0}; // free, writing, ready, playing
-    int patch=-1,layers=0;
+    int patch=-1,layers=0;size_t residentBytes=0;
     std::array<std::array<DecodedZone,zones*velocities>,maxLayers> data;
 };
 class Bank {
@@ -60,6 +61,9 @@ class Bank {
     std::array<int,factoryCount> counts{};
     std::array<std::array<Region,zones*velocities>,factoryCount> regions{};
     uint64_t fileBytes=0;
+    StreamCache stream;
+    std::vector<SampleRecord> streamRecords; // immutable after map load
+    static int residentFrames(const SampleRecord& r){return r.streamId>=0?std::min(r.length,StreamCache::attackFrames):r.length;}
     std::array<std::array<SampleRecord,zones*velocities>,factoryCount> records{};
     SampleRecord record(int source,int z,int v)const{
         auto rec=records[source][z*velocities+v];
@@ -75,15 +79,15 @@ class Bank {
                 if(used[i].length!=rec.length||used[i].channels!=rec.channels)return false;
                 duplicate=true;break;
             }
-            if(!duplicate){used[n++]=rec;bytes+=uint64_t(rec.length)*rec.channels*sizeof(int32_t);if(bytes>maxCacheBytes)return false;}
+            if(!duplicate){used[n++]=rec;bytes+=uint64_t(residentFrames(rec))*rec.channels*sizeof(int32_t);if(bytes>maxCacheBytes)return false;}
         }
         return true;
     }
     bool readMap(){
         std::ifstream in(path+".map");
         if(!in){ std::FILE* f=std::fopen((path+".map").c_str(),"rb"); if(f){std::fclose(f);return false;} return fileBytes==legacyBytes; }
-        std::string line; if(!std::getline(in,line)||(line!="LINFMAP1"&&line!="LINFMAP2"))return false;
-        bool extended=line=="LINFMAP2";if(!extended&&fileBytes!=legacyBytes)return false;
+        std::string line; if(!std::getline(in,line)||(line!="LINFMAP1"&&line!="LINFMAP2"&&line!="LINFMAP3"))return false;
+        const bool streaming=line=="LINFMAP3";bool extended=line!="LINFMAP1";if(!extended&&fileBytes!=legacyBytes)return false;
         while(std::getline(in,line)){
             if(line.empty())continue;
             std::istringstream s(line); char type; int p,l,q; if(!(s>>type>>p>>l>>q)||p<0||p>=factoryCount)return false;
@@ -108,14 +112,24 @@ class Bank {
             std::string extra;if(s>>extra)return false;
         }
         if(!in.eof())return false;
+        if(streaming)for(auto& source:records)for(auto& rec:source){
+            // Existing mono Factory remains resident. Stream only extended long samples.
+            if(!rec.offset||rec.length<=2*frames)continue;
+            for(size_t i=0;i<streamRecords.size();++i){
+                const auto& prev=streamRecords[i];
+                if(prev.offset==rec.offset&&prev.length==rec.length&&prev.channels==rec.channels){rec.streamId=int(i);break;}
+            }
+            if(rec.streamId<0){rec.streamId=int(streamRecords.size());streamRecords.push_back(rec);}
+        }
         for(int p=0;p<factoryCount;++p)if(!checkBudget(p))return false;
+        if(!streamRecords.empty()&&!stream.enable())return false;
         return true;
     }
     std::array<std::array<std::array<float,taps>,phases>,bands> kernel{};
     static constexpr double pi=3.14159265358979323846;
     bool readSlot(Slot& s,int p){
         // The worker owns this slot exclusively. Release old data before allocating.
-        s.data={};
+        s.data={};s.residentBytes=0;
         std::FILE* f=std::fopen(path.c_str(),"rb");if(!f)return false;
         constexpr size_t chunkSamples=16384;
         bool ok=true;int count=counts[p]?counts[p]:layerCount(p);
@@ -129,7 +143,8 @@ class Bank {
                     if(prev.info.offset==rec.offset&&prev.info.length==rec.length&&prev.info.channels==rec.channels){dst.pcm=prev.pcm;break;}
                 }
                 if(dst.pcm)continue;
-                dst.pcm=std::make_shared<std::vector<int32_t>>(size_t(rec.length)*rec.channels);
+                dst.pcm=std::make_shared<std::vector<int32_t>>(size_t(residentFrames(rec))*rec.channels);
+                s.residentBytes+=dst.pcm->size()*sizeof(int32_t);
                 auto& data=*dst.pcm;ok=std::fseek(f,long(rec.offset),SEEK_SET)==0;
                 for(size_t offset=0;ok&&offset<data.size();offset+=chunkSamples){
                     const size_t n=std::min(chunkSamples,data.size()-offset);
@@ -141,10 +156,12 @@ class Bank {
                 }
             }
         }catch(...){ok=false;}
-        std::fclose(f);if(ok){s.patch=p;s.layers=count;}else s.data={};return ok;
+        std::fclose(f);if(ok){s.patch=p;s.layers=count;}else {s.data={};s.residentBytes=0;}return ok;
     }
     void run(){
+        std::FILE* streamFile=stream.enabled()?std::fopen(path.c_str(),"rb"):nullptr;
         while(!quit.load(std::memory_order_acquire)){
+            stream.service(streamFile,streamRecords);
             const int p=request.load(std::memory_order_acquire);
             if(p!=loaded.load(std::memory_order_acquire)){
                 bool found=false;
@@ -164,8 +181,9 @@ class Bank {
                     break;
                 }
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            std::this_thread::sleep_for(std::chrono::milliseconds(stream.enabled()?1:5));
         }
+        if(streamFile)std::fclose(streamFile);
     }
 public:
     explicit Bank(std::string file):path(std::move(file)){
@@ -221,14 +239,25 @@ public:
         if(step<=1)return 0;
         return std::clamp(int(std::ceil(std::log2(step)/.75)),0,bands-1);
     }
+    void beginBlock()noexcept{stream.beginBlock();}
+    uint32_t streamUnderruns()const{return stream.underruns();}
+    uint32_t streamQueueDrops()const{return stream.queueDrops();}
+    uint32_t streamIOErrors()const{return stream.ioErrors();}
+    size_t activePCMBytes()const{return active>=0?slots[active].residentBytes:0;}
+    size_t streamPageBytes()const{return stream.bytes();}
+    void prefetch(int layer,int z,int v,double pos){stream.prefetch(slots[active].data[layer][z*velocities+v].info,pos);}
     SampleRecord sampleRecord(int layer,int z,int v)const{return slots[active].data[layer][z*velocities+v].info;}
-    float sample(int layer,int zone,int velocity,double pos,int b,int channel=0)const{
+    float sample(int layer,int zone,int velocity,double pos,int b,int channel=0){
         const auto& z=slots[active].data[layer][zone*velocities+velocity];
         const auto& pcm=*z.pcm;const int len=z.info.length,ch=z.info.channels;
         channel=ch==1?0:channel;
         int i=int(pos);int phase=std::clamp(int((pos-i)*phases),0,phases-1);
         const auto& coeff=kernel[b][phase];float x=0;
         const int first=i-(taps/2-1);
+        if(z.info.streamId>=0){
+            stream.prefetch(z.info,pos);
+            if(first+taps>residentFrames(z.info))return stream.sample(z.info,i,channel,coeff);
+        }
         if(first>=0&&first+taps<=len){
             const int32_t* data=pcm.data()+size_t(first)*ch+channel;
             for(int t=0;t<taps;++t)x+=float(data[t*ch])*coeff[t];
