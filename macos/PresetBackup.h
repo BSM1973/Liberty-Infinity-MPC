@@ -15,8 +15,8 @@ static bool validPresetBackup(id doc){
         id rec=presets[name];
         if(![rec isKindOfClass:NSDictionary.class]||![rec[@"schema"] isEqual:@1]||!knownFactory(rec[@"factory"]))return false;
         id values=rec[@"values"];
-        if(![values isKindOfClass:NSDictionary.class]||[values count]!=NSUInteger(synth->numParams()))return false;
-        for(int i=0;i<synth->numParams();++i){
+        if(![values isKindOfClass:NSDictionary.class]||[values count]!=NSUInteger(soundParameterCount))return false;
+        for(int i=0;i<soundParameterCount;++i){
             id v=values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]];
             if(![v isKindOfClass:NSNumber.class]||!std::isfinite([v doubleValue])||[v doubleValue]<0||[v doubleValue]>1)return false;
         }
@@ -32,7 +32,7 @@ static int backupSelfTest(){
     synth=std::make_unique<Infinity>();if(!synth->usingPackedBank())return 21;
     synth->setProgram(3);synth->setNormalised(1,.25f);
     NSMutableDictionary *values=[NSMutableDictionary new];
-    for(int i=0;i<synth->numParams();++i)values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]]=@(synth->getNormalised(i));
+    for(int i=0;i<soundParameterCount;++i)values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]]=@(synth->getNormalised(i));
     favorites=[NSMutableSet setWithObject:patchName(3)];userPresets=[@{@"Épreuve de sauvegarde":@{@"schema":@1,@"factory":patchName(3),@"values":values}} mutableCopy];
     NSData *bytes=[NSJSONSerialization dataWithJSONObject:backupDocument() options:0 error:nil];
     id restored=bytes?[NSJSONSerialization JSONObjectWithData:bytes options:0 error:nil]:nil;
@@ -40,7 +40,7 @@ static int backupSelfTest(){
     synth->setProgram(0);
     NSDictionary *v=restored[@"presets"][@"Épreuve de sauvegarde"][@"values"];
     synth->setProgram(3);
-    for(int i=1;i<synth->numParams();++i)synth->setNormalised(i,[v[[NSString stringWithUTF8String:synth->param(i).id.c_str()]] floatValue]);
+    for(int i=1;i<soundParameterCount;++i)synth->setNormalised(i,[v[[NSString stringWithUTF8String:synth->param(i).id.c_str()]] floatValue]);
     if(std::abs(synth->getNormalised(1)-.25f)>1e-5f)return 23;
     if(validPresetBackup(@{@"schema":@1,@"product":@"Liberty Infinity",@"favorites":@[@"inconnu"],@"presets":@{}}))return 24;
     if(validPresetBackup(@{@"schema":@1,@"product":@"Liberty Infinity",@"favorites":@[],@"presets":@{@"invalide":@{@"schema":@1,@"factory":patchName(3),@"values":@{}}}}))return 25;

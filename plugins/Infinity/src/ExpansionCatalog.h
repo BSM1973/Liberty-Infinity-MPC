@@ -3,7 +3,7 @@
 // 100 patches each. Each collection has independent compact PCM.
 constexpr int expansionSlots=4,expansionCapacity=100,totalPatches=factoryCount+expansionSlots*expansionCapacity;
 struct ExpansionPreset {
-    std::string name;int layers=0;
+    std::string name;int layers=0,category=0;
     std::array<LayerSettings,maxLayers> settings{};
     std::array<std::array<SampleRecord,zones*velocities>,maxLayers> records{};
     std::array<std::array<Region,zones*velocities>,maxLayers> regions{};
@@ -41,6 +41,8 @@ class ExpansionCatalog {
                     if(ex->presets[p])return {};auto q=std::make_unique<ExpansionPreset>();
                     if(!(s>>std::quoted(q->name))||!nameOK(q->name))return {};
                     ex->presets[p]=std::move(q);
+                }else if(op=='C'){
+                    auto* q=ex->presets[p].get();if(!q||!(s>>q->category)||q->category<0||q->category>12)return {};
                 }else{
                     auto* q=ex->presets[p].get();if(!q||!(s>>l)||l<0||l>=maxLayers)return {};
                     if(op=='L'){

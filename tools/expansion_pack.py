@@ -47,7 +47,7 @@ def build(manifest,out):
             for p in patches:
                 i=integer(p["index"],0,99)
                 if i in seen:raise ValueError("Duplicate preset index")
-                seen.add(i);lines.append(f"P {i} {quoted(p['name'])}")
+                seen.add(i);lines.append(f"P {i} {quoted(p['name'])}");lines.append(f"C {i} {integer(p.get('category',0),0,12)}")
                 layers=p["layers"]
                 if not 1<=len(layers)<=4:raise ValueError("1–4 layers")
                 roles=[];resident={}

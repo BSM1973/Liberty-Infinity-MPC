@@ -34,6 +34,12 @@ jobs:
       - run: set -o pipefail; /tmp/infinity-stream | tee streaming-comparison.csv
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/streaming_qc.cpp -o /tmp/infinity-stream-qc -ldl
       - run: set -o pipefail; /tmp/infinity-stream-qc | tee streaming-60s.csv
+      - run: python tools/build_demo_expansion.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Liberty-Infinity-MPC-DEMO-Expansion
+          path: expansion-demo/
+          if-no-files-found: error
       - run: python tools/generate_samples.py
       - run: python tools/pack_factory.py
       - run: python tools/retro_assets.py
@@ -46,7 +52,7 @@ jobs:
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/switching.cpp -o /tmp/infinity-switch -ldl
       - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-switch | tee switching-validation.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/performance.cpp -o /tmp/infinity-perf -ldl
-      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-perf | tee performance-v098.csv
+      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-perf | tee performance-v099.csv
       - run: |
           git archive 986a6694bef0d1b84265197aa0e6e146082778d2 plugins/Infinity/src | tar -x -C /tmp
           mkdir -p /tmp/tests
@@ -57,7 +63,7 @@ jobs:
       - run: python tools/level_match.py --src factory-listening --out factory-level-match
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-v0.9.8-Optional-Factory-Level-Match
+          name: Liberty-Infinity-v0.9.9-Optional-Factory-Level-Match
           path: factory-level-match/
           if-no-files-found: error
       - run: python tools/build_acoustic_preview.py --base plugins/Infinity/Content/Factory.pcm --out acoustic-preview
@@ -65,26 +71,31 @@ jobs:
       - run: set -o pipefail; /tmp/infinity-acoustic acoustic-preview/Factory.pcm | tee acoustic-validation.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-v0.9.8-CC0-Acoustic-Evaluation
+          name: Liberty-Infinity-v0.9.9-CC0-Acoustic-Evaluation
           path: acoustic-preview/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-v0.9.8-100-Factory-Listening-WAV
+          name: Liberty-Infinity-v0.9.9-100-Factory-Listening-WAV
           path: factory-listening/
           if-no-files-found: error
       - run: python tools/make_retro_skin.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Liberty-Infinity-MPC-Library-Manager-Preview
+          path: plugins/Infinity/assets/libraries.png
+          if-no-files-found: error
       - run: python tools/enable_sdk_threads.py
       - run: python sdk/tools/build.py plugins/Infinity
       - run: python sdk/tools/package.py plugins/Infinity
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-MPC-v0.9.8-EXPERIMENTAL
+          name: Liberty-Infinity-MPC-v0.9.9-EXPERIMENTAL
           path: plugins/Infinity/dist/*.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-v0.9.8-Factory-and-Performance-Validation
+          name: Liberty-Infinity-v0.9.9-Factory-and-Performance-Validation
           path: |
             stereo-validation.txt
             expansion-validation.txt
@@ -99,7 +110,7 @@ jobs:
             factory-validation.txt
             switching-validation.txt
             performance-v06.csv
-            performance-v098.csv
+            performance-v099.csv
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -128,7 +139,7 @@ jobs:
       - run: set -o pipefail; /tmp/infinity-stream-qc-mac | tee streaming-60s-mac.csv
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-v0.9.8-macOS-Streaming-QC
+          name: Liberty-Infinity-v0.9.9-macOS-Streaming-QC
           path: streaming-60s-mac.csv
           if-no-files-found: error
       - run: python tools/generate_samples.py
@@ -136,17 +147,17 @@ jobs:
       - run: python tools/retro_assets.py
       - run: bash macos/build.sh
       - run: |
-          pkgbuild --component "dist/Liberty Infinity MPC Test.app" --install-location /Applications --identifier com.libertymusicsoftware.infinitympctest --version 0.9.8 dist/Liberty-Infinity-0.9.8-arm64-UNSIGNED.pkg
-          pkgutil --payload-files dist/Liberty-Infinity-0.9.8-arm64-UNSIGNED.pkg > dist/pkg-payload.txt
+          pkgbuild --component "dist/Liberty Infinity MPC Test.app" --install-location /Applications --identifier com.libertymusicsoftware.infinitympctest --version 0.9.9 dist/Liberty-Infinity-0.9.9-arm64-UNSIGNED.pkg
+          pkgutil --payload-files dist/Liberty-Infinity-0.9.9-arm64-UNSIGNED.pkg > dist/pkg-payload.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-v0.9.8-macOS-Unsigned-Test-PKG
+          name: Liberty-Infinity-v0.9.9-macOS-Unsigned-Test-PKG
           path: |
             dist/*.pkg
             dist/pkg-payload.txt
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-Mac-Test-v0.9.8-arm64
+          name: Liberty-Infinity-Mac-Test-v0.9.9-arm64
           path: dist/*.zip
           if-no-files-found: error

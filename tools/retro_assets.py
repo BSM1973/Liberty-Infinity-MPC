@@ -140,3 +140,23 @@ p.text((730,266),"1 / 17 | 100 sons",font=font(11),fill=WHITE,anchor="mt")
 p.text((730,312),"BA Deep Bass",font=font(14),fill=WHITE,anchor="mt")
 preview.convert("RGB").save(A/"black-gold-preview.png")
 print("Black Gold assets generated; 39 unique slots, no overlapping slot bounds")
+
+# Dedicated MPC Library Manager: static slot artwork, not installed pack covers.
+lib=Image.new("RGB",(1280,628),(15,15,18));ld=ImageDraw.Draw(lib)
+ld.rounded_rectangle((4,4,1275,623),radius=8,outline=G,width=2)
+ld.text((32,20),"LIBERTY INFINITY  |  LIBRARY MANAGER",font=font(30),fill=LIGHT)
+ld.text((32,62),"FACTORY 1 + 4 EMPLACEMENTS PCM INDEPENDANTS",font=font(17),fill=WHITE)
+for i in range(5):
+    x=32+246*i;y=98
+    ld.rounded_rectangle((x,y,x+232,y+224),radius=8,outline=G,width=2,fill=(25,26,31))
+    for j in range(6):
+        inset=22+j*10
+        ld.rounded_rectangle((x+inset,y+17+j*7,x+232-inset,y+147-j*7),radius=10,outline=(95+j*13,76+j*10,42+j*6),width=2)
+    title="FACTORY 1" if i==0 else f"LIBRARY {i}"
+    ld.text((x+116,y+158),title,font=font(23),anchor="mt",fill=LIGHT)
+    ld.text((x+116,y+192),"100 PRESETS" if i==0 else "EMPLACEMENT",font=font(15),anchor="mt",fill=WHITE)
+for x in (32,340,648,956):ld.rounded_rectangle((x,343,x+292,459),radius=5,outline=G,fill=(22,23,27))
+ld.rounded_rectangle((32,470,1248,546),radius=5,outline=G,fill=(12,16,22))
+ld.text((32,566),"INSTALLATION : COPIER LA LIBRARY DANS CONTENT/EXPANSIONS, PUIS REOUVRIR LE PLUGIN",font=font(15),fill=WHITE)
+ld.text((32,590),"LES COUVERTURES PERSONNALISEES RESTENT DANS LES PACKS. EMPLACEMENTS FIXES POUR LES PROJETS.",font=font(13),fill=G)
+lib.save(A/"libraries.png")

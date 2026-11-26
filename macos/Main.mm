@@ -89,7 +89,7 @@ static void chooseRow(int i){
     if(!activeLibrary()){choose(i);selectedLibraryRow=-1;return;}
     NSDictionary *record=libraryPreset(i);int f=factoryIndex(record);if(f<0)return;
     choose(f);NSDictionary *values=record[@"values"];
-    for(int k=1;k<synth->numParams();++k)synth->setNormalised(k,[values[[NSString stringWithUTF8String:synth->param(k).id.c_str()]] floatValue]);
+    for(int k=1;k<soundParameterCount;++k)synth->setNormalised(k,[values[[NSString stringWithUTF8String:synth->param(k).id.c_str()]] floatValue]);
     selectedLibraryRow=i;userName=libraryPresetName(i);
 }
 static const char *keyMap="awsedftgyhujkolp";
@@ -238,7 +238,7 @@ static const char *keyMap="awsedftgyhujkolp";
     if([a runModal]!=NSAlertFirstButtonReturn)return;
     NSString *name=[field.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];if(!name.length||name.length>80)return;
     if(userPresets[name]){NSAlert *confirm=[NSAlert new];confirm.messageText=@"Remplacer ce preset ?";[confirm addButtonWithTitle:@"Remplacer"];[confirm addButtonWithTitle:@"Annuler"];if([confirm runModal]!=NSAlertFirstButtonReturn)return;}
-    NSMutableDictionary *values=[NSMutableDictionary new];for(int i=0;i<synth->numParams();++i)values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]]=@(synth->getNormalised(i));
+    NSMutableDictionary *values=[NSMutableDictionary new];for(int i=0;i<soundParameterCount;++i)values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]]=@(synth->getNormalised(i));
     userPresets[name]=@{@"schema":@1,@"factory":patchName(current),@"values":values};userName=name;persist();
 }
 -(void)showUserPresets:(NSEvent*)e{
@@ -251,8 +251,8 @@ static const char *keyMap="awsedftgyhujkolp";
     NSString *name=item.representedObject;NSDictionary *record=userPresets[name];if(![record isKindOfClass:NSDictionary.class]||![record[@"schema"] isEqual:@1])return;
     NSDictionary *values=record[@"values"];if(![values isKindOfClass:NSDictionary.class])return;
     int p=-1;for(int i=0;i<factoryCount;++i)if([record[@"factory"] isEqual:patchName(i)]){p=i;break;}if(p<0)return;
-    for(int i=1;i<synth->numParams();++i){id v=values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]];if(![v isKindOfClass:NSNumber.class]||!std::isfinite([v doubleValue])||[v doubleValue]<0||[v doubleValue]>1)return;}
-    selectedLibraryRow=-1;choose(p);for(int i=1;i<synth->numParams();++i)synth->setNormalised(i,[values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]] floatValue]);userName=name;
+    for(int i=1;i<soundParameterCount;++i){id v=values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]];if(![v isKindOfClass:NSNumber.class]||!std::isfinite([v doubleValue])||[v doubleValue]<0||[v doubleValue]>1)return;}
+    selectedLibraryRow=-1;choose(p);for(int i=1;i<soundParameterCount;++i)synth->setNormalised(i,[values[[NSString stringWithUTF8String:synth->param(i).id.c_str()]] floatValue]);userName=name;
 }
 -(void)selectMode:(NSMenuItem*)item{synth->set(int(item.tag/100),int(item.tag%100));[self setNeedsDisplay:YES];}
 -(void)mouseDragged:(NSEvent*)e{if(drag>=0){NSPoint p=[self convertPoint:e.locationInWindow fromView:nil];synth->setNormalised(drag,std::clamp(startValue+float(startY-p.y)/150.f,0.f,1.f));}}

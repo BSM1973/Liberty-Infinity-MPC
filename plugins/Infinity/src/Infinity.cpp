@@ -43,7 +43,8 @@ struct Voice {
     bool held=false;
     uint64_t age=0;
 };
-enum Param { Sound, Attack, Decay, Sustain, Release, Cutoff, Pan, Volume, P_filteron, P_fenv, P_reso, P_fatk, P_fdec, P_fsus, P_frel, P_ampon, P_spike, P_spread, P_masteron, P_mastertype, P_masterslope, P_mastercut, P_masterres, P_delayon, P_delaytype, P_delaymix, P_delaytime, P_feedback, P_delaymod, P_delaylo, P_delayhi, P_revon, P_revtype, P_revmix, P_revpre, P_revdec, P_revmod, P_revlo, P_revhi };
+enum Param { Sound, Attack, Decay, Sustain, Release, Cutoff, Pan, Volume, P_filteron, P_fenv, P_reso, P_fatk, P_fdec, P_fsus, P_frel, P_ampon, P_spike, P_spread, P_masteron, P_mastertype, P_masterslope, P_mastercut, P_masterres, P_delayon, P_delaytype, P_delaymix, P_delaytime, P_feedback, P_delaymod, P_delaylo, P_delayhi, P_revon, P_revtype, P_revmix, P_revpre, P_revdec, P_revmod, P_revlo, P_revhi, P_library, P_category, P_browse, P_preview };
+constexpr int soundParameterCount=P_revhi+1;
 }
 
 class Infinity final: public mpc::Plugin {
@@ -90,6 +91,10 @@ public:
         addParam(mpc::floatParam("revmod","Rev Mod",0,100,0,"%",0));
         addParam(mpc::logParam("revlo","Rev Lo",20,4000,100,"Hz",0));
         addParam(mpc::logParam("revhi","Rev Hi",500,18000,8000,"Hz",0));
+        auto lib=mpc::choiceParam("library","Collection",{"Factory 1","Library 1","Library 2","Library 3","Library 4"},0);lib.automatable=false;addParam(lib);
+        auto category=mpc::choiceParam("librarycategory","Categorie",{"Toutes","Bass","Keys","Pads","Plucks","Leads","Pianos","Strings","Brass","Arpeggios","Bells & Mallets","Atmospheres","Synth & FX"},0);category.automatable=false;addParam(category);
+        auto browse=mpc::intParam("librarypreset","Preset",1,100,1);browse.automatable=false;addParam(browse);
+        auto preview=mpc::boolParam("librarypreview","Ecouter",false);preview.automatable=false;addParam(preview);
         for(int p=0;p<patches;++p){
             const auto& q=factory[p];const int k=q.kind,v=q.variant;
             const float a=k==2||k==10?220.f+v*20:k==6?85.f:5.f;
@@ -107,8 +112,26 @@ public:
     }
     const hd::Expansion* expansion(int slot)const{return bank.expansion(slot);}
     const hd::ExpansionPreset* expansionPreset(int p)const{return bank.expansionPreset(p);}
+    int browserCount(int lib,int category)const{
+        if(lib<0||lib>hd::expansionSlots||category<0||category>12)return 0;
+        int n=0;for(int row=0;row<100;++row){int p=lib*100+row;
+            if(!bank.available(p))continue;
+            int k=lib?bank.expansionPreset(p)->category:factory[p].kind+1;
+            if(!category||k==category)++n;
+        }return n;
+    }
+    int browserPatch(int lib,int category,int row)const{
+        if(lib<0||lib>hd::expansionSlots||category<0||category>12||row<1)return -1;
+        for(int i=0;i<100;++i){int p=lib*100+i;if(!bank.available(p))continue;
+            int k=lib?bank.expansionPreset(p)->category:factory[p].kind+1;
+            if((!category||k==category)&&--row==0)return p;
+        }return -1;
+    }
     bool formatValue(int index,float plain,std::string& out)override{
-        if(index==Sound&&int(plain)>=factoryCount){int p=int(plain);auto* ep=bank.expansionPreset(p);out=ep?ep->name:hd::ExpansionCatalog::label(p)+" (vide)";return true;}return false;
+        if(index==P_library){int lib=int(plain);if(lib==0)out="Factory 1 (100)";else if(auto* ex=bank.expansion(lib-1))out=ex->name+" ("+std::to_string(browserCount(lib,0))+")";else out="Library "+std::to_string(lib)+" (vide)";return true;}
+        if(index==P_browse){int p=browserPatch(getInt(P_library),getInt(P_category),int(plain));out=p<0?"Aucun resultat":p<factoryCount?factory[p].name:bank.expansionPreset(p)->name;return true;}
+        if(index==P_preview){out=plain>0.5f?"Stop":"Ecouter";return true;}
+        if(index==Sound&&int(plain)>=factoryCount){int p=int(plain);auto* ep=bank.expansionPreset(p);out=blockedPatch.load()==p?"Library incompatible":ep?ep->name:hd::ExpansionCatalog::label(p)+" (vide)";return true;}return false;
     }
     void saveExtraState(std::vector<uint8_t>& out)override{
         const int p=getInt(Sound);if(p<factoryCount)return;
@@ -127,7 +150,7 @@ public:
     bool usingPackedBank() const {return bank.good();}
     int loadedZones() const {return bank.good()?patches*zones*hd::velocities:0;}
     void prepare(double sampleRate,int) override { sr=std::clamp(sampleRate,8000.0,192000.0); for(auto& b:lines)b.assign(size_t(sr*2)+4,0); reset(); }
-    void reset() override { pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; roundRobin={}; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
+    void reset() override { navLibrary=getInt(P_library);navCategory=getInt(P_category);navRow=getInt(P_browse);previewFrames=0;previewPending=false;set(P_preview,0);pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; roundRobin={}; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
     uint32_t streamUnderruns()const{return bank.streamUnderruns();}
     uint32_t streamQueueDrops()const{return bank.streamQueueDrops();}
     uint32_t streamIOErrors()const{return bank.streamIOErrors();}
@@ -135,14 +158,31 @@ public:
     size_t streamPageBytes()const{return bank.streamPageBytes();}
     void process(mpc::ProcessContext& ctx) override {
         bank.beginBlock();
+        // Browser controls are observed only on change; state restore/reset never selects a different Sound.
+        const int lib=getInt(P_library),category=getInt(P_category);
+        int row=getInt(P_browse);
+        if(lib!=navLibrary||category!=navCategory){row=1;set(P_browse,1);}
+        if(lib!=navLibrary||category!=navCategory||row!=navRow){
+            navLibrary=lib;navCategory=category;navRow=row;
+            const int p=browserPatch(lib,category,row);
+            if(p>=0)set(Sound,float(p));
+            set(P_preview,0);
+        }
         const int desired=std::clamp(getInt(Sound),0,hd::totalPatches-1);
         if(blockedPatch.load()==desired||!bank.available(desired)){
-            voices={};pending={};activeVoices.store(0,std::memory_order_relaxed);switchGain=0;for(int ch=0;ch<ctx.numOutputs;++ch)std::fill_n(ctx.outputs[ch],ctx.numFrames,0.f);return;
+            voices={};pending={};previewFrames=0;previewPending=false;set(P_preview,0);activeVoices.store(0,std::memory_order_relaxed);switchGain=0;for(int ch=0;ch<ctx.numOutputs;++ch)std::fill_n(ctx.outputs[ch],ctx.numFrames,0.f);return;
         }
-        if(desired!=requested){requested=desired;pending={};}
+        if(desired!=requested){requested=desired;pending={};previewFrames=0;previewPending=false;}
         bank.requestPatch(desired);
         if(bank.loadedPatch()!=desired && switchGain<=0.f && bank.select(desired)){voices={};roundRobin={};activeVoices.store(0,std::memory_order_relaxed);}
         const bool waiting=bank.loadedPatch()!=desired;
+        if(!getBool(P_preview)){if(previewFrames||previewPending)releasePreview();previewFrames=0;previewPending=false;}
+        else if(!previewFrames&&!previewPending)previewPending=true;
+        if(previewPending&&!waiting){
+            if(browserPatch(lib,category,row)==desired){startVoice(16,60,100,desired);previewFrames=std::max(1,int(sr*.85));}
+            else set(P_preview,0);
+            previewPending=false;
+        }
         if(!waiting)for(int ch=0;ch<16;++ch)for(int note=0;note<128;++note)if(pending[ch][note]){
             startVoice(ch,note,pending[ch][note],desired);pending[ch][note]=0;
         }
@@ -171,6 +211,7 @@ public:
         int event=0;
         for(int i=0;i<ctx.numFrames;++i) {
             while(event<ctx.numMidiEvents && ctx.midi[event].sampleOffset<=i) midi(ctx.midi[event++],desired,waiting);
+            if(previewFrames>0&&--previewFrames==0){releasePreview();set(P_preview,0);}
             float l=0,r=0;
             for(auto& v:voices) {
                 if(!v.stage) continue;
@@ -275,9 +316,11 @@ public:
     }
 private:
     std::atomic<int> activeVoices{0},blockedPatch{-1};
+    int navLibrary=0,navCategory=0,navRow=1,previewFrames=0;bool previewPending=false;
+    void releasePreview(){for(auto& v:voices)if(v.stage&&v.channel==16){v.held=false;v.stage=4;}}
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=908;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=909;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){

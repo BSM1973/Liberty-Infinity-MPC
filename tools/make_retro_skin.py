@@ -8,9 +8,9 @@ P=ROOT/"plugins/Infinity"
 L=json.loads((P/"layout.json").read_text())
 params=g.load_params(str(P/"build/params.json"))
 by={p.index:p for p in params}
-assert set(by)=={c["i"] for c in L["controls"]}, "Layout and DSP parameter mismatch"
+assert set(by)=={c["i"] for c in L["controls"]}|{39,40,41,42}, "Layout and DSP parameter mismatch"
 out=P/"skins";out.mkdir(exist_ok=True)
-for f in ("retro.png","gold_knob_36.png","gold_knob_40.png","power_36_on.png","power_36_off.png","power_40_on.png","power_40_off.png","selector_60.png"):shutil.copy2(P/"assets"/f,out/f)
+for f in ("libraries.png","retro.png","gold_knob_36.png","gold_knob_40.png","power_36_on.png","power_36_off.png","power_40_on.png","power_40_off.png","selector_60.png"):shutil.copy2(P/"assets"/f,out/f)
 o=g.obj
 def rect(x,y,w,h):return f"{x} {y} {w} {h}"
 def label(n,t,xy,colour="fff9f9f9",size=16):
@@ -56,6 +56,26 @@ for ti,(name,indices) in enumerate(groups):
       ("componentDefinition",g.component_definition([],children,"ff101014",bg_image="retro.png")),("qlinkBoundsData",[])))
     maps.append(o(("Tab",ti+1),("SubTab",1),("Bank Direction","Column"),
       ("Q-Links",g.Obj(("Q-Link %d"%(j+1),indices[j] if j<len(indices) else -1) for j in range(16)))))
+# Native Library Manager: controls backed by actual DSP parameter handles.
+libchildren=[]
+for index,title,x in ((39,"COLLECTION",32),(40,"CATEGORIE",340),(41,"PRESET",648),(42,"PRE-ECOUTE",956)):
+    name=f"library{index}";param=by[index];w=292;h=110
+    parts=[label("name",title,rect(5,8,w-10,26),size=20),
+           g.entry("value","Label",g.label_data("Value","ffd5b06b",23,"horizontallyCentred verticallyCentred"),rect(8,44,w-16,34),"No","Show","Always")]
+    if index==42:
+        parts.append(g.entry("switch","Button",g.button_data("power_40_on.png","power_40_off.png",1,1),rect(126,78,40,36),"No","Show","Always"))
+        # Button is contained in the 116-pixel control and acts on the preview bool.
+        h=116
+    overlay="menu overlay" if index in (39,40) else "knob overlay"
+    defs.append(o(("key",name),("value",g.component_definition(g.control_actions(overlay,index!=42),parts,"00000000"))))
+    libchildren.append(g.entry(name,name,o(("version",1),("handleName","Data")),rect(x,343,w,h),"Yes","Hide","Always",remap=[("Data",param.handle)]))
+# Actual selected Sound handle; the native Sound list remains available.
+name="librarySound"
+parts=[label("name","SON ACTUEL",rect(0,0,1216,24),size=16),g.entry("value","Label",g.label_data("Value","fff9f9f9",28,"horizontallyCentred verticallyCentred"),rect(0,28,1216,46),"No","Show","Always")]
+defs.append(o(("key",name),("value",g.component_definition(g.control_actions("menu overlay"),parts,"00000000"))))
+libchildren.append(g.entry(name,name,o(("version",1),("handleName","Data")),rect(32,470,1216,76),"Yes","Hide","Always",remap=[("Data",by[0].handle)]))
+tabs.append(o(("version",1),("tabName","LIBRARIES"),("fnKeyIndex",3),("fnKeySubIndex",0),("componentDefinition",g.component_definition([],libchildren,"ff101014",bg_image="libraries.png")),("qlinkBoundsData",[])))
+maps.append(o(("Tab",4),("SubTab",1),("Bank Direction","Column"),("Q-Links",g.Obj(("Q-Link %d"%(j+1),[39,40,41,42,0][j] if j<5 else -1) for j in range(16)))))
 repl=[o(("key",p.handle),("value",list(p.choices))) for p in params if p.is_discrete]
 tui=o(("pageData",o(("version",1),("componentDefinitions",o(("version",2),("importFiles",[]),("localComponentDefinitions",defs))),
   ("replacementStrings",repl),("info",o(("version",1),("type","CompleteDescription"))),("tabs",tabs))))
@@ -63,4 +83,4 @@ ql=o(("version",4),("info",o(("version",1),("type","CompleteDescription"))),
   ("Screen Mode Q-Links",o(("version",4),("map",maps))),
   ("Program Mode Q-Links",g.Obj(("Q-Link %d"%(i+1),v) for i,v in enumerate(groups[0][1]))))
 for n,v in [("TUI.json",tui),("Q-Links.json",ql)]: (out/n).write_text(g.dump_json(v)+"\n",encoding="utf8")
-print("Black Gold skin: 39 bound parameters, three Q-Link banks")
+print("Black Gold skin: 43 bound parameters, four Q-Link banks")
