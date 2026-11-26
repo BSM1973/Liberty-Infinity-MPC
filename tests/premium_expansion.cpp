@@ -48,9 +48,9 @@ int main(int argc,char** argv){
         if(listening)wav(std::string(listening)+"/preset-"+std::to_string(p-100)+".wav",recording);
         if(std::getenv("INFINITY_MASTER_QC")){
             // Each state must restore the exact patch and parameter, not the browser row.
-            s.set(P_library,1);s.set(P_category,0);s.set(P_browse,1);s.set(P_preview,0);s.set(Pan,.19f);
-            auto state=s.internalSaveState();s.setProgram(0);s.set(Pan,-.4f);
-            if(!s.internalLoadState(state.data(),state.size())||s.getInt(Sound)!=p||std::abs(s.get(Pan)-.19f)>.001f)return 9;
+            s.set(P_library,1);s.set(P_category,0);s.set(P_browse,1);s.set(P_preview,0);s.set(Pan,19.f);
+            auto state=s.internalSaveState();s.setProgram(0);s.set(Pan,-40.f);
+            if(!s.internalLoadState(state.data(),state.size())||s.getInt(Sound)!=p||std::abs(s.get(Pan)-19.f)>.001f)return 9;
             ctx.numMidiEvents=0;s.process(ctx);if(s.getInt(Sound)!=p)return 10;
         }
         auto* ep=s.expansionPreset(p);if(!ep)return 7;

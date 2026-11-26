@@ -46,12 +46,12 @@ jobs:
       - run: python tools/generate_samples.py
       - run: python tools/pack_factory.py
       - run: python tools/build_cinematic_horizons.py
-      - run: python tools/test_mpc_expansion_manager.py
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/premium_expansion.cpp -o /tmp/infinity-premium -ldl
       - run: set -o pipefail; INFINITY_CINEMATIC_LISTEN_DIR="$PWD/cinematic-before" /tmp/infinity-premium plugins/Infinity/Content/Factory.pcm cinematic-horizons | tee cinematic-before.csv
       - run: python tools/master_cinematic.py calibrate cinematic-horizons cinematic-before cinematic-trims.csv
       - run: set -o pipefail; INFINITY_MASTER_QC=1 INFINITY_CINEMATIC_LISTEN_DIR="$PWD/cinematic-listening" /tmp/infinity-premium plugins/Infinity/Content/Factory.pcm cinematic-horizons | tee cinematic-validation.csv
       - run: python tools/master_cinematic.py compare cinematic-trims.csv cinematic-listening cinematic-master-comparison.csv
+      - run: python tools/test_mpc_expansion_manager.py
       - run: python tools/package_cinematic_master.py
       - uses: actions/upload-artifact@v4
         with:

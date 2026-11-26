@@ -137,7 +137,7 @@ public:
         const int p=getInt(Sound);if(p<factoryCount)return;
         auto* ex=bank.expansionFor(p);
         if(blockedPatch.load()==p||!ex||!bank.available(p)){
-            if(savedExpansionID[0])out.assign(savedExpansionID.begin(),savedExpansionID.end());
+            if(blockedPatch.load()==p&&savedExpansionID[0])out.assign(savedExpansionID.begin(),savedExpansionID.end());
             else out.assign(36,'!');return;
         }
         out.assign(ex->id.begin(),ex->id.end());
