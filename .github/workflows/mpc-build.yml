@@ -22,6 +22,7 @@ jobs:
           path: sdk
       - run: pip install pillow numpy scipy
       - run: python tools/test_multisamples.py
+      - run: python tools/test_cinematic_velocity.py
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/expansion_license.cpp -o /tmp/infinity-license -ldl
       - run: set -o pipefail; /tmp/infinity-license | tee expansion-license-validation.txt
       - run: set -o pipefail; python tools/test_expansion_pack.py | tee expansion-authoring.txt

@@ -42,21 +42,21 @@ def render(note,vel,index,v,kind):
         elif v%4==3:x=.56*x+.35*harmonics(1.8)+.09*part(.5)
         y=.92*x+.18*part(1.002,.4);env=np.minimum(1,t*170)*np.exp(-t*(.65+.11*v))
     elif kind=="pad":
-        spread=.002+v*.00035;power=1.35+v*.032
+        spread=.002+v*.00035;power=1.35+v*.032+.24*(1-strength)
         x=wide(power,spread)+.22*part(.5 if v%4==0 else 2)
         y=wide(power,spread*1.23)+.2*part(1.003,.7);env=np.minimum(1,t*(2.7+v*.13))*(.9+.1*np.sin(t*(2+v*.31)))
     elif kind=="pluck":
-        x=harmonics(1.15+v*.043)+.31*part(2.006+v*.006)*np.exp(-t*4)
+        x=harmonics(1.15+v*.043+.30*(1-strength))+(.16+.25*strength)*part(2.006+v*.006)*np.exp(-t*4)
         y=.9*x+.22*part(1.004,.5);env=np.minimum(1,t*250)*np.exp(-t*(3.1+v*.18))
     elif kind=="lead":
-        x=wide(1+v*.028,.003+v*.0005)+.25*part(1)
-        y=wide(1.05+v*.029,.004+v*.0005)+.2*part(2);env=np.minimum(1,t*(85-v*2))
+        x=wide(1+v*.028+.22*(1-strength),.003+v*.0005)+.25*part(1)
+        y=wide(1.05+v*.029+.22*(1-strength),.004+v*.0005)+(.12+.15*strength)*part(2);env=np.minimum(1,t*(85-v*2))
     elif kind=="bell":
-        x=sum(part(h,.05*v)*a*np.exp(-t*decay) for h,a,decay in [(1,.7,1.1),(2.12+v*.03,.24,3),(3.43+v*.04,.15,5),(5.17,.1,7)])
+        x=sum(part(h,.05*v)*a*np.exp(-t*decay) for h,a,decay in [(1,.7,1.1),(2.12+v*.03,.15+.15*strength,3),(3.43+v*.04,.08+.11*strength,5),(5.17,.05+.08*strength,7)])
         y=x+.12*part(1.008,.5)*np.exp(-t*2);env=np.minimum(1,t*200)
     elif kind=="atmos":
-        x=wide(1.85+v*.06,.007+v*.0008)+.17*part(2.006)
-        y=wide(1.9+v*.04,.008+v*.0008)+.14*part(.5,.8);env=np.minimum(1,t*(2.2+v*.14))*(.75+.25*np.sin(t*(3+v*.4)))
+        x=wide(1.85+v*.06+.25*(1-strength),.007+v*.0008)+(.10+.12*strength)*part(2.006)
+        y=wide(1.9+v*.04+.25*(1-strength),.008+v*.0008)+.14*part(.5,.8);env=np.minimum(1,t*(2.2+v*.14))*(.75+.25*np.sin(t*(3+v*.4)))
     else:
         sweep=ph*(1+(.04+v*.035)*t);x=.65*np.sin(sweep)+.17*np.sin(sweep*1.51)+.025*rng.standard_normal(N)
         y=.7*x+.21*np.sin(sweep*1.007+.7);env=np.minimum(1,t*80)*np.exp(-t*(1.3+v*.6))
@@ -74,7 +74,8 @@ def render(note,vel,index,v,kind):
     active=energy[energy>=max(1e-12,float(energy.max())*.1)]
     rms=float(np.sqrt(active.mean()))
     goal=.22 if vel<64 else .38
-    scale=min(goal/max(rms,1e-9),.92/peak)
+    ceiling=.50 if vel<64 else .92
+    scale=min(goal/max(rms,1e-9),ceiling/peak)
     return (stereo*scale).astype(np.float32),loop
 
 def loop_points(x):
@@ -101,7 +102,7 @@ def cover(path):
         d.text((256,y),s,font=font(n),anchor="mm",fill=(229,198,128))
     im.save(path)
 def main():
-    out=Path("cinematic-horizons");seen=set();index=0;loop_metrics=[]
+    out=Path("cinematic-horizons");seen={};index=0;loop_metrics=[]
     with tempfile.TemporaryDirectory() as temp:
         root=Path(temp);presets=[]
         for cat,prefix,kind,names in GROUPS:
@@ -110,9 +111,11 @@ def main():
                 for note in (36,48,60,72,84):
                     for vel,lo,hi in [(40,1,63),(100,64,127)]:
                         x,loop=render(note,vel,index,v,kind)
-                        digest=hashlib.sha256(x.tobytes()).digest()
-                        if digest in seen:raise ValueError("Duplicate render")
-                        seen.add(digest);wav=f"{index}-{note}-{vel}.wav";wavfile.write(root/wav,RATE,x)
+                        pcm=np.rint(np.clip(x.astype(np.float64),-1,1-1/8388608)*8388608).astype(np.int32)
+                        digest=hashlib.sha256(pcm.tobytes()).digest()
+                        identity=(index,name,note,vel)
+                        if digest in seen:raise ValueError(f"Duplicate PCM24 render: {identity} matches {seen[digest]}")
+                        seen[digest]=identity;wav=f"{index}-{note}-{vel}.wav";wavfile.write(root/wav,RATE,x)
                         zone=dict(wav=wav,root=note,vel_min=lo,vel_max=hi,source="Original Liberty offline render",rights="Original Liberty candidate sample")
                         if loop:
                             err,start,end,xf=loop_points(x)
