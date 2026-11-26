@@ -46,8 +46,48 @@ int main(int argc,char** argv){
         }
         if(e<1e-7||peak>=1||s.activePCMBytes()>hd::maxCacheBytes)return 6;
         if(listening)wav(std::string(listening)+"/preset-"+std::to_string(p-100)+".wav",recording);
+        if(std::getenv("INFINITY_MASTER_QC")){
+            // Each state must restore the exact patch and parameter, not the browser row.
+            s.set(P_library,1);s.set(P_category,0);s.set(P_browse,1);s.set(P_preview,0);s.set(Pan,.19f);
+            auto state=s.internalSaveState();s.setProgram(0);s.set(Pan,-.4f);
+            if(!s.internalLoadState(state.data(),state.size())||s.getInt(Sound)!=p||std::abs(s.get(Pan)-.19f)>.001f)return 9;
+            ctx.numMidiEvents=0;s.process(ctx);if(s.getInt(Sound)!=p)return 10;
+        }
         auto* ep=s.expansionPreset(p);if(!ep)return 7;
         if(ep->regions[0][2*hd::velocities+3].xf>0&&late<1e-6){std::cerr<<"Silent loop "<<p<<"\n";return 8;}
         std::cout<<p-100<<","<<std::quoted(ep->name)<<","<<ep->category<<","<<10*std::log10(e/samples)<<","<<20*std::log10(peak)<<","<<s.activePCMBytes()<<","<<10*std::log10(std::max(1e-20,late/std::max<size_t>(1,lateN)))<<","<<maxStep<<"\n";
+    }
+    if(std::getenv("INFINITY_MASTER_QC")){
+        using Clock=std::chrono::steady_clock;
+        std::ofstream perf("cinematic-polyphony.csv");if(!perf)return 11;
+        perf<<"voices,seconds,mean_budget_pct,p95_budget_pct,p99_budget_pct,max_budget_pct,over_budget_blocks,peak_dbfs,pcm_bytes\n";
+        for(int n:{24,32,64}){
+            if(n>s.maxVoices())continue;
+            s.setProgram(128);s.reset();ctx.numMidiEvents=0;
+            for(int i=0;i<2000&&s.loadedPatch()!=128;++i){s.process(ctx);std::this_thread::sleep_for(std::chrono::milliseconds(2));}
+            if(s.loadedPatch()!=128)return 12;
+            std::vector<mpc::MidiEvent> notes;
+            for(int i=0;i<n;++i)notes.push_back(mpc::MidiEvent::noteOn(i%16,36+i%48,75+i%26));
+            ctx.midi=notes.data();ctx.numMidiEvents=int(notes.size());
+            constexpr int blocks=22500;std::vector<double> times;times.reserve(blocks);double sum=0,peak=0;int over=0;
+            auto deadline=Clock::now();const auto period=std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(128./48000.));
+            for(int b=0;b<blocks;++b){
+                auto start=Clock::now();s.process(ctx);ctx.numMidiEvents=0;
+                double pct=std::chrono::duration<double>(Clock::now()-start).count()/(128./48000.)*100;
+                times.push_back(pct);sum+=pct;over+=pct>100;
+                for(int k=0;k<128;++k)for(float x:{l[k],r[k]}){if(!std::isfinite(x))return 13;peak=std::max(peak,double(std::abs(x)));}
+                deadline+=period;std::this_thread::sleep_until(deadline);
+            }
+            if(s.activeVoiceCount()!=n||peak<=0||s.streamIOErrors())return 14;
+            std::sort(times.begin(),times.end());perf<<n<<",60,"<<sum/blocks<<","<<times[blocks*95/100]<<","<<times[blocks*99/100]<<","<<times.back()<<","<<over<<","<<20*std::log10(peak)<<","<<s.activePCMBytes()<<"\n";
+        }
+        // A missing pack must retain its saved identity across resaves.
+        s.setProgram(128);auto original=s.internalSaveState();std::string id=s.expansion(0)?s.expansion(0)->id:"";
+        fs::remove(slot/"License.txt");
+        {Infinity missing;missing.prepare(48000,128);if(missing.expansionPreset(128)||!missing.internalLoadState(original.data(),original.size()))return 15;
+         missing.process(ctx);for(float x:l)if(x!=0)return 16;
+         auto saved=missing.internalSaveState();
+         if(std::search(saved.begin(),saved.end(),id.begin(),id.end())==saved.end()||id.size()!=36)return 17;}
+        fs::create_symlink(fs::absolute(fs::path(argv[2])/"License.txt"),slot/"License.txt");
     }
 }

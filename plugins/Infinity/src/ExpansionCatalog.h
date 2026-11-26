@@ -4,6 +4,7 @@
 constexpr int expansionSlots=4,expansionCapacity=100,totalPatches=factoryCount+expansionSlots*expansionCapacity;
 struct ExpansionPreset {
     std::string name;int layers=0,category=0;
+    float trim=1.f;bool trimSet=false;
     std::array<LayerSettings,maxLayers> settings{};
     std::array<std::array<SampleRecord,zones*velocities>,maxLayers> records{};
     std::array<std::array<Region,zones*velocities>,maxLayers> regions{};
@@ -41,6 +42,10 @@ class ExpansionCatalog {
                     if(ex->presets[p])return {};auto q=std::make_unique<ExpansionPreset>();
                     if(!(s>>std::quoted(q->name))||!nameOK(q->name))return {};
                     ex->presets[p]=std::move(q);
+                }else if(op=='G'){
+                    auto* q=ex->presets[p].get();float db;
+                    if(!q||q->trimSet||!(s>>db)||!std::isfinite(db)||db< -12.f||db>12.f)return {};
+                    q->trim=std::pow(10.f,db/20.f);q->trimSet=true;
                 }else if(op=='C'){
                     auto* q=ex->presets[p].get();if(!q||!(s>>q->category)||q->category<0||q->category>12)return {};
                 }else{

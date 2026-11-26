@@ -279,7 +279,7 @@ public:
         return false;
     }
     int sourceFor(int p,int l)const{return counts[p]?settings[p][l].source:source(p,l);}
-    float patchGain(int p)const{return p>=factoryCount?1.f:gainSet[p]?patchGains[p]:1.f;}
+    float patchGain(int p)const{if(p>=factoryCount){auto* ep=expansions.preset(p);return ep?ep->trim:1.f;}return gainSet[p]?patchGains[p]:1.f;}
     bool customPatch(int p)const{return p>=factoryCount||counts[p]!=0;}
     LayerSettings layerSettings(int p,int l)const{return p>=factoryCount?expansions.preset(p)->settings[l]:settings[p][l];}
     std::array<float,maxLayers> weights(int p,int velocity,uint32_t sequence)const{auto* ep=expansions.preset(p);return ep?articulationWeights(ep->settings,ep->layers,velocity,sequence):articulationWeights(settings[p],counts[p],velocity,sequence);}

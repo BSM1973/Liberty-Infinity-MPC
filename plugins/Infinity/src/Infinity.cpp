@@ -136,12 +136,17 @@ public:
     void saveExtraState(std::vector<uint8_t>& out)override{
         const int p=getInt(Sound);if(p<factoryCount)return;
         auto* ex=bank.expansionFor(p);
-        if(blockedPatch.load()==p||!ex||!bank.available(p)){out.assign(36,'!');return;}
+        if(blockedPatch.load()==p||!ex||!bank.available(p)){
+            if(savedExpansionID[0])out.assign(savedExpansionID.begin(),savedExpansionID.end());
+            else out.assign(36,'!');return;
+        }
         out.assign(ex->id.begin(),ex->id.end());
     }
     void loadExtraState(const uint8_t* data,size_t n)override{
         int p=getInt(Sound);auto* ex=bank.expansionFor(p);
-        blockedPatch.store(p>=factoryCount&&(!ex||n!=36||std::memcmp(data,ex->id.data(),36)!=0)?p:-1);
+        savedExpansionID.fill(0);if(data&&n==36)std::copy_n(data,36,savedExpansionID.begin());
+        blockedPatch.store(p>=factoryCount&&(!ex||!data||n!=36||std::memcmp(data,ex->id.data(),36)!=0)?p:-1);
+        syncBrowser.store(true,std::memory_order_release);
     }
     void parameterChanged(int index,float value)override{if(index==Sound&&int(value)!=blockedPatch.load())blockedPatch.store(-1);}
     int activeVoiceCount() const {return activeVoices.load(std::memory_order_relaxed);}
@@ -161,6 +166,7 @@ public:
         // Browser controls are observed only on change; state restore/reset never selects a different Sound.
         const int lib=getInt(P_library),category=getInt(P_category);
         int row=getInt(P_browse);
+        if(syncBrowser.exchange(false,std::memory_order_acq_rel)){navLibrary=lib;navCategory=category;navRow=row;set(P_preview,0);}
         if(lib!=navLibrary||category!=navCategory){row=1;set(P_browse,1);}
         if(lib!=navLibrary||category!=navCategory||row!=navRow){
             navLibrary=lib;navCategory=category;navRow=row;
@@ -316,11 +322,13 @@ public:
     }
 private:
     std::atomic<int> activeVoices{0},blockedPatch{-1};
+    std::array<uint8_t,36> savedExpansionID{}; // state callbacks only; render reads blockedPatch
+    std::atomic<bool> syncBrowser{false};
     int navLibrary=0,navCategory=0,navRow=1,previewFrames=0;bool previewPending=false;
     void releasePreview(){for(auto& v:voices)if(v.stage&&v.channel==16){v.held=false;v.stage=4;}}
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=911;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=912;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){
