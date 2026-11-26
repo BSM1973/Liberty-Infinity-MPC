@@ -15,4 +15,11 @@ with tempfile.TemporaryDirectory() as t:
     except ValueError:pass
     else:raise AssertionError("Duplicate accepted")
     refresh(root)
+    assert (root/'Content/Expansions/01/SHA256SUMS.json').is_file()
+    bad=root/'Content/Expansions/01/Cover.png'
+    with bad.open('ab') as f:f.write(b'tampered')
+    from expansion_pack import verify_checksums
+    try:verify_checksums(bad.parent)
+    except ValueError:pass
+    else:raise AssertionError('Tampered cover accepted')
 print("PASS real cover, installation, Factory unchanged, duplicate rejected")

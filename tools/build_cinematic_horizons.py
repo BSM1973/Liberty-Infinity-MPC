@@ -5,7 +5,7 @@ import numpy as np
 from scipy.io import wavfile
 from PIL import Image,ImageDraw,ImageFont
 from expansion_pack import build
-RATE=44100;N=RATE*3//2
+RATE=44100;N=RATE*2
 GROUPS=[
 (1,"BA","bass","Obsidian Pulse|Gravity Engine|Sub Eclipse|Copper Drive|Night Reactor|Silicon Funk|Dark Matter|Velvet Core|Neon Torque|Magnetic Low|Quantum Reese|Midnight Voltage|Chrome Acid|Black Current|Deep Vector|Solar Pressure"),
 (2,"KY","keys","Glass Circuit|Golden Tines|Lunar Electric|Amber Keys|Soft Voltage|Crystal Organ|Silver Chime|Dusty Memory|Velvet Phase|Neon Electric|Silicon Bells|Orbit Keys"),
@@ -21,7 +21,14 @@ def render(note,vel,index,v,kind):
     def part(h,offset=0):
         return np.sin(ph*h+offset) if h*hz<15000 else np.zeros(N)
     def harmonics(power,detune=1,offset=0):
-        return sum(part(h*detune,offset*h+.013*v*h)/h**power for h in range(1,min(24,int(14500/(hz*detune))+1)))
+        # Distinct spectral families, not only small variations in harmonic tilt.
+        family=v%4
+        def weight(h):
+            if family==0:return 1.
+            if family==1:return 1. if h%2 else .08
+            if family==2:return np.sin(np.pi*h*(.18+.035*(v%5)))/(.65*h**.2)
+            return (1.+1.4*np.exp(-((h-(3+v%5))/1.5)**2))*(-1 if h%3==0 else 1)
+        return sum(weight(h)*part(h*detune,offset*h+.013*v*h)/h**power for h in range(1,min(24,int(14500/(hz*detune))+1)))
     def wide(power,spread):
         return sum(harmonics(power,1+j*spread,j*.21) for j in (-2,-1,0,1,2))/5
     if kind=="bass":
@@ -30,6 +37,9 @@ def render(note,vel,index,v,kind):
     elif kind=="keys":
         mod=(.25+strength*(.8+v*.08))*np.exp(-t*(2.2+.14*v))
         x=np.sin(ph+mod*np.sin(ph*(2+v%3)))+.22*part(2.008)*np.exp(-t*3)
+        if v%4==1:x=.65*x+.35*part(3.01)*np.exp(-t*6)
+        elif v%4==2:x=.68*x+.32*harmonics(2.1)*(.7+.3*np.cos(2*np.pi*t*4.7))
+        elif v%4==3:x=.56*x+.35*harmonics(1.8)+.09*part(.5)
         y=.92*x+.18*part(1.002,.4);env=np.minimum(1,t*170)*np.exp(-t*(.65+.11*v))
     elif kind=="pad":
         spread=.002+v*.00035;power=1.35+v*.032
@@ -50,7 +60,7 @@ def render(note,vel,index,v,kind):
     else:
         sweep=ph*(1+(.04+v*.035)*t);x=.65*np.sin(sweep)+.17*np.sin(sweep*1.51)+.025*rng.standard_normal(N)
         y=.7*x+.21*np.sin(sweep*1.007+.7);env=np.minimum(1,t*80)*np.exp(-t*(1.3+v*.6))
-        if v==2:x=x[::-1].copy();y=y[::-1].copy();env=env[::-1].copy()
+        if v==2:env=np.minimum(1,t*1.7)**.75; x=x[::-1].copy();y=y[::-1].copy()
     loop=kind in ("bass","pad","lead","atmos")
     if not loop:env*=np.minimum(1,(N-1-np.arange(N))/(RATE*.045))
     stereo=np.column_stack((x*env,y*env))
@@ -58,7 +68,26 @@ def render(note,vel,index,v,kind):
     stereo=np.fft.irfft(np.fft.rfft(stereo,axis=0)*lp[:,None],n=N,axis=0)
     peak=float(np.max(np.abs(stereo)))
     if not np.isfinite(stereo).all() or peak<1e-5:raise ValueError("Invalid render")
-    return (stereo*((.40 if vel<64 else .76)/peak)).astype(np.float32),loop
+    # Match active-window RMS, retain velocity contrast, prevent source clipping.
+    block=RATE//10
+    energy=np.array([np.mean(stereo[i:i+block]**2) for i in range(0,N,block)])
+    active=energy[energy>=max(1e-12,float(energy.max())*.1)]
+    rms=float(np.sqrt(active.mean()))
+    goal=.22 if vel<64 else .38
+    scale=min(goal/max(rms,1e-9),.92/peak)
+    return (stereo*scale).astype(np.float32),loop
+
+def loop_points(x):
+    # Joint stereo matching of the two overlap windows. Search bounded candidate
+    # positions close to the original start and end; crossfade remains in DSP.
+    xf=RATE*80//1000; best=None
+    for start in range(RATE*6//10,RATE*9//10+1,735):
+        a=x[start:start+xf:8].astype(np.float64)
+        for end in range(N-RATE//5,N+1,735):
+            b=x[end-xf:end:8].astype(np.float64)
+            e=float(np.mean((a-b)**2)/(np.mean(a*a+b*b)+1e-12))
+            if best is None or e<best[0]:best=(e,start,end,xf)
+    return best
 def font(size):
     try:return ImageFont.truetype("DejaVuSans-Bold.ttf",size)
     except OSError:return ImageFont.load_default(size=size)
@@ -72,7 +101,7 @@ def cover(path):
         d.text((256,y),s,font=font(n),anchor="mm",fill=(229,198,128))
     im.save(path)
 def main():
-    out=Path("cinematic-horizons");seen=set();index=0
+    out=Path("cinematic-horizons");seen=set();index=0;loop_metrics=[]
     with tempfile.TemporaryDirectory() as temp:
         root=Path(temp);presets=[]
         for cat,prefix,kind,names in GROUPS:
@@ -85,14 +114,18 @@ def main():
                         if digest in seen:raise ValueError("Duplicate render")
                         seen.add(digest);wav=f"{index}-{note}-{vel}.wav";wavfile.write(root/wav,RATE,x)
                         zone=dict(wav=wav,root=note,vel_min=lo,vel_max=hi,source="Original Liberty offline render",rights="Original Liberty candidate sample")
-                        if loop:zone.update(loop=[RATE//2,N],crossfade=RATE//25)
+                        if loop:
+                            err,start,end,xf=loop_points(x)
+                            zone.update(loop=[start,end],crossfade=xf)
+                            loop_metrics.append(dict(preset=index,note=note,velocity=vel,normalized_overlap_error=err,start=start,end=end,crossfade=xf))
                         zones.append(zone)
-                presets.append(dict(index=index,name=prefix+" "+name,category=cat,layers=[dict(zones=zones)]));index+=1
+                presets.append(dict(index=index,name=prefix+" "+name,category=cat,layers=[dict(zones=zones,gain=1.65 if kind in ('bass','keys','pluck','bell') else 2.0)]));index+=1
         assert index==100 and len(seen)==1000
         cover(root/"cover.png")
-        manifest=dict(id="8e206ac5-fabb-49c1-8c45-2262c72b5480",name="Cinematic Horizons",entitlement="DEMO",cover="cover.png",presets=presets)
+        manifest=dict(id="a0bdca61-77bd-4c21-9f5f-71b696950b11",name="Cinematic Horizons",entitlement="DEMO",cover="cover.png",presets=presets)
         (root/"manifest.json").write_text(json.dumps(manifest),encoding="utf8")
         build(root/"manifest.json",out)
-    (out/"README.txt").write_text("Cinematic Horizons: 100 candidate presets, 1000 original stereo offline renders. DEVELOPMENT DEMO ONLY. No acoustic recordings or human listening certification.",encoding="utf8")
+    (out/"LOOP-QC.json").write_text(json.dumps(loop_metrics,indent=2),encoding="utf8")
+    (out/"README.txt").write_text("Cinematic Horizons: 100 candidate presets, 1000 revised stereo offline renders. New immutable candidate UUID. DEVELOPMENT DEMO ONLY. No acoustic recordings or human listening certification.",encoding="utf8")
     print("PASS 100 presets, 1000 distinct offline stereo source renders")
 if __name__=="__main__":main()

@@ -9,6 +9,21 @@ from PIL import Image,ImageDraw,ImageFont
 ROOTS=(36,48,60,72,84)
 VELS=(16,48,80,112)
 LIMIT=48*1024*1024
+CORE_FILES=("Library.pcm","Library.map","PROVENANCE.json","Cover.png")
+def sha256_file(path):
+    h=hashlib.sha256()
+    with Path(path).open("rb") as f:
+        for chunk in iter(lambda:f.read(1024*1024),b""):h.update(chunk)
+    return h.hexdigest()
+def verify_checksums(pack):
+    path=Path(pack)/"SHA256SUMS.json"
+    if not path.exists():return False # backwards compatibility for older packs
+    if path.stat().st_size>4096:raise ValueError("Oversized checksum manifest")
+    entries=json.loads(path.read_text(encoding="ascii"))
+    if set(entries)!=set(CORE_FILES):raise ValueError("Unexpected checksum entries")
+    for name in CORE_FILES:
+        if entries[name]!=sha256_file(Path(pack)/name):raise ValueError("Checksum mismatch: "+name)
+    return True
 def quoted(s):
     if not isinstance(s,str) or not s or len(s.encode("utf8"))>80 or any(ord(c)<32 or ord(c)==127 for c in s):raise ValueError("Invalid name")
     return '"'+s.replace("\\","\\\\").replace('"','\\"')+'"'
@@ -103,6 +118,7 @@ def build(manifest,out):
             rows.append(row)
             for j,line in enumerate(rows[:8]):draw.text((35,130+j*32),line,font=font(24),fill="white")
             draw.text((35,445),"DEMO COLLECTION",font=font(18),fill=(220,186,112));im.save(temp/"Cover.png")
+        (temp/"SHA256SUMS.json").write_text(json.dumps({n:sha256_file(temp/n) for n in CORE_FILES},indent=2),encoding="ascii")
         temp.rename(out)
 def install(pack,content,slot):
     pack=Path(pack);content=Path(content);slot=integer(slot,1,4)
@@ -111,10 +127,18 @@ def install(pack,content,slot):
     if dest.exists():raise FileExistsError(dest)
     names=("Library.pcm","Library.map","License.txt","PROVENANCE.json","Cover.png")
     if not all((pack/n).is_file() for n in names):raise ValueError("Incomplete pack")
+    checked=verify_checksums(pack)
+    if checked:names+=("SHA256SUMS.json",)
     dest.parent.mkdir(parents=True,exist_ok=True)
+    if shutil.disk_usage(dest.parent).free < sum((pack/n).stat().st_size for n in names)+1024*1024:
+        raise OSError("Insufficient free storage")
     with tempfile.TemporaryDirectory(dir=dest.parent) as t:
         temp=Path(t)/"pack";temp.mkdir()
         for n in names:shutil.copyfile(pack/n,temp/n)
+        if checked:verify_checksums(temp)
+        else:
+            for n in names:
+                if sha256_file(pack/n)!=sha256_file(temp/n):raise ValueError("Copy verification failed: "+n)
         if dest.exists():raise FileExistsError(dest)
         temp.rename(dest)
     print(dest)

@@ -2,7 +2,7 @@
 from pathlib import Path
 import argparse,json,tempfile,os,uuid
 from PIL import Image,ImageDraw,ImageFont
-from expansion_pack import install
+from expansion_pack import install,verify_checksums
 def root_info(plugin):
     plugin=Path(plugin);m=json.loads((plugin/"plugin.json").read_text())
     if m.get("uid")!="LInf" or m.get("name")!="Liberty Infinity":raise ValueError("Select Liberty Infinity plugin folder")
@@ -58,11 +58,16 @@ def refresh(plugin):
 def add(pack,plugin,slot):
     plugin,_=root_info(plugin);pack=Path(pack);info=metadata(pack)
     if not info:raise ValueError("Pack absent")
+    verify_checksums(pack)
     for i in range(1,5):
         try:old=metadata(plugin/"Content/Expansions"/f"{i:02d}")
         except (ValueError,OSError):continue
         if old and old[0]==info[0]:raise ValueError("Collection already installed")
-    install(pack,plugin/"Content",slot);refresh(plugin)
+    install(pack,plugin/"Content",slot)
+    try:refresh(plugin)
+    except Exception as e:
+        # Retain verified pack; caller can retry refresh. Never delete a user's bank.
+        raise RuntimeError("Pack installed; cover refresh failed. Run refresh with host stopped.") from e
 if __name__=="__main__":
     p=argparse.ArgumentParser();s=p.add_subparsers(dest="cmd",required=True)
     i=s.add_parser("install");i.add_argument("pack");i.add_argument("plugin");i.add_argument("slot",type=int)
