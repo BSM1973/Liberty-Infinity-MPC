@@ -1,4 +1,4 @@
-name: Liberty Infinity MPC - production key candidate
+name: Liberty Infinity MPC - v1.0 production
 on:
   workflow_dispatch:
     inputs:
@@ -6,13 +6,46 @@ on:
         description: "Liberty public key (64 lowercase hex). NEVER the private seed."
         required: true
         type: string
+      listening_approved:
+        description: "All 200 presets listened to and approved"
+        required: true
+        type: boolean
+        default: false
+      arm32_approved:
+        description: "Physical MPC ARM32 tests approved"
+        required: true
+        type: boolean
+        default: false
+      arm64_approved:
+        description: "Physical MPC ARM64 tests approved"
+        required: true
+        type: boolean
+        default: false
+      qa_record:
+        description: "QA record reference: models, firmware, test date and tester"
+        required: true
+        type: string
 permissions:
   contents: read
+  actions: read
 jobs:
   mpc-commercial-candidate:
     runs-on: ubuntu-22.04
     steps:
+      - name: Require explicit listening and hardware approval
+        env:
+          LISTEN: ${{ inputs.listening_approved }}
+          ARM32: ${{ inputs.arm32_approved }}
+          ARM64: ${{ inputs.arm64_approved }}
+          QA_RECORD: ${{ inputs.qa_record }}
+        run: |
+          set -euo pipefail
+          [[ "$LISTEN" == true && "$ARM32" == true && "$ARM64" == true ]]
+          [[ -n "$QA_RECORD" ]]
+          printf '%s\n' "$QA_RECORD" > /tmp/liberty-qa-reference.txt
       - uses: actions/checkout@v4
+        with:
+          ref: 2a7ccf6f4033a425d1090a890c03047fa6d37715
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -33,17 +66,82 @@ jobs:
           cp /tmp/LicensePolicy.h plugins/Infinity/src/LicensePolicy.h
           c++ -std=c++17 -O2 -pthread -I sdk/framework tests/expansion_license.cpp -o /tmp/infinity-license -ldl
           /tmp/infinity-license
-      - run: python tools/generate_samples.py
-      - run: python tools/pack_factory.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: Liberty-Infinity-v0.9.12-Factory-and-Performance-Validation
+          run-id: 45791021315
+          github-token: ${{ github.token }}
+          path: validated-reports
+      - uses: actions/download-artifact@v4
+        with:
+          name: Liberty-Infinity-MPC-v0.9.12-EXPERIMENTAL
+          run-id: 45791021315
+          github-token: ${{ github.token }}
+          path: validated-plugin
+      - name: Verify QC and reuse the exact validated Factory bank
+        run: |
+          python - <<'PY'
+          import csv,pathlib,zipfile,shutil,hashlib,json,math
+          reports=pathlib.Path("validated-reports")
+          with (reports/"cinematic-validation.csv").open() as f: rows=list(csv.DictReader(f))
+          assert len(rows)==100 and {int(x["preset"]) for x in rows}==set(range(100))
+          assert all(math.isfinite(float(x["peak_dbfs"])) and float(x["peak_dbfs"])<=-11.5 for x in rows)
+          with (reports/"cinematic-master-comparison.csv").open() as f: master=list(csv.DictReader(f))
+          assert len(master)==100 and {int(x["preset"]) for x in master}==set(range(100))
+          with (reports/"cinematic-polyphony.csv").open() as f: perf=list(csv.DictReader(f))
+          assert {int(x["voices"]) for x in perf}=={24,32,64} and all(int(x["seconds"])==60 for x in perf)
+          for x in perf: print("Host performance:",x)
+          archives=list(pathlib.Path("validated-plugin").glob("*.zip"));assert len(archives)==1
+          with zipfile.ZipFile(archives[0]) as z:
+              banks=[x for x in z.namelist() if x.endswith("/Content/Factory.pcm")]
+              assert len(banks)==1 and z.getinfo(banks[0]).file_size==529200032
+              dst=pathlib.Path("plugins/Infinity/Content/Factory.pcm");dst.parent.mkdir(parents=True,exist_ok=True)
+              with z.open(banks[0]) as src,dst.open("wb") as target: shutil.copyfileobj(src,target)
+              with dst.open("rb") as f: digest=hashlib.file_digest(f,"sha256").hexdigest()
+              pathlib.Path("/tmp/liberty-factory-sha256.txt").write_text(digest+"  Factory.pcm\n")
+          p=pathlib.Path("plugins/Infinity/plugin.json");d=json.loads(p.read_text())
+          assert d["version"]=="0.9.12";d["version"]="1.0.0";d["description"]="PCM multisample ROMpler for compatible Akai MPC external plugin hosts"
+          p.write_text(json.dumps(d,indent=2)+"\n")
+          p=pathlib.Path("plugins/Infinity/src/Infinity.cpp");s=p.read_text()
+          assert s.count("p.version=912;")==1;p.write_text(s.replace("p.version=912;","p.version=1000;"))
+          print("PASS frozen Factory bank and 100 Master QC rows")
+          PY
+      - run: python tools/qc_ui.py
+      - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/factory.cpp -o /tmp/infinity-factory -ldl
+      - run: set -o pipefail; MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-factory | tee production-factory-validation.txt
       - run: python tools/retro_assets.py
       - run: python tools/enable_sdk_threads.py
       - run: python sdk/tools/build.py plugins/Infinity --target native
       - run: python tools/make_retro_skin.py
       - run: python tools/enable_sdk_threads.py
       - run: python sdk/tools/build.py plugins/Infinity
+      - run: cp plugins/Infinity/src/vendor/LICENCE.md "plugins/Infinity/build/Liberty Music Software - VST - Liberty Infinity/MONOCYPHER-LICENCE.md"
       - run: python sdk/tools/package.py plugins/Infinity
+      - name: Verify release archive
+        run: |
+          python - <<'PY'
+          import zipfile,pathlib,hashlib,json,struct
+          dist=pathlib.Path("plugins/Infinity/dist");archives=list(dist.glob("*.zip"));assert len(archives)==1
+          archive=archives[0];prefix="Liberty Music Software - VST - Liberty Infinity/"
+          with zipfile.ZipFile(archive) as z:
+              assert z.testzip() is None
+              manifest=json.loads(z.read(prefix+"plugin.json"))
+              assert manifest["version"]=="1.0.0" and manifest["uid"]=="LInf"
+              for key,elfclass,machine in (("file32",1,40),("file64",2,183)):
+                  with z.open(prefix+manifest[key]) as f: header=f.read(20)
+                  assert header[:4]==bytes([127,69,76,70]) and header[4]==elfclass and header[5]==1
+                  assert struct.unpack("<H",header[18:20])[0]==machine
+              with z.open(prefix+"Content/Factory.pcm") as f:
+                  assert hashlib.file_digest(f,"sha256").hexdigest()==pathlib.Path("/tmp/liberty-factory-sha256.txt").read_text().split()[0]
+              assert prefix+"MONOCYPHER-LICENCE.md" in z.namelist()
+              assert prefix+"Plugin Skins/TUI.json" in z.namelist()
+          with archive.open("rb") as f: sha=hashlib.file_digest(f,"sha256").hexdigest()
+          (dist/"SHA256SUMS.txt").write_text(sha+"  "+archive.name+"\n")
+          print("PASS ARM32/ARM64 ELF, exact Factory, version, skin and ZIP integrity")
+          PY
+          cp /tmp/liberty-qa-reference.txt /tmp/liberty-factory-sha256.txt /tmp/liberty-public.hex production-factory-validation.txt plugins/Infinity/dist/
       - uses: actions/upload-artifact@v4
         with:
-          name: Liberty-Infinity-MPC-PRODUCTION-KEY-CANDIDATE
-          path: plugins/Infinity/dist/*.zip
+          name: Liberty-Infinity-MPC-v1.0.0-PRODUCTION-VALIDATION
+          path: plugins/Infinity/dist/
           if-no-files-found: error
