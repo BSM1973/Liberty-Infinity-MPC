@@ -172,7 +172,7 @@ public:
         if(blockedPatch.load()==desired||!bank.available(desired)){
             voices={};pending={};previewFrames=0;previewPending=false;set(P_preview,0);activeVoices.store(0,std::memory_order_relaxed);switchGain=0;for(int ch=0;ch<ctx.numOutputs;++ch)std::fill_n(ctx.outputs[ch],ctx.numFrames,0.f);return;
         }
-        if(desired!=requested){requested=desired;pending={};previewFrames=0;previewPending=false;}
+        if(desired!=requested){releasePreview();requested=desired;pending={};previewFrames=0;previewPending=false;}
         bank.requestPatch(desired);
         if(bank.loadedPatch()!=desired && switchGain<=0.f && bank.select(desired)){voices={};roundRobin={};activeVoices.store(0,std::memory_order_relaxed);}
         const bool waiting=bank.loadedPatch()!=desired;
@@ -320,7 +320,7 @@ private:
     void releasePreview(){for(auto& v:voices)if(v.stage&&v.channel==16){v.held=false;v.stage=4;}}
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";
-        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=909;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
+        p.uniqueId=MPC_FOURCC('L','I','n','f');p.version=910;p.isInstrument=true;p.numInputs=0;p.numOutputs=2;p.tailSamples=192000*8;return p;
     }
     void updateSteps(Voice& v){
         for(int l=0;l<v.layers;++l){

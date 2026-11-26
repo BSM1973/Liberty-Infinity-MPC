@@ -158,5 +158,5 @@ for i in range(5):
 for x in (32,340,648,956):ld.rounded_rectangle((x,343,x+292,459),radius=5,outline=G,fill=(22,23,27))
 ld.rounded_rectangle((32,470,1248,546),radius=5,outline=G,fill=(12,16,22))
 ld.text((32,566),"INSTALLATION : COPIER LA LIBRARY DANS CONTENT/EXPANSIONS, PUIS REOUVRIR LE PLUGIN",font=font(15),fill=WHITE)
-ld.text((32,590),"LES COUVERTURES PERSONNALISEES RESTENT DANS LES PACKS. EMPLACEMENTS FIXES POUR LES PROJETS.",font=font(13),fill=G)
+ld.text((32,590),"COUVERTURES MISES A JOUR HORS LIGNE. EMPLACEMENTS FIXES POUR LES PROJETS.",font=font(13),fill=G)
 lib.save(A/"libraries.png")

@@ -1,0 +1,49 @@
+name: Liberty Infinity MPC - production key candidate
+on:
+  workflow_dispatch:
+    inputs:
+      public_key:
+        description: "Liberty public key (64 lowercase hex). NEVER the private seed."
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  mpc-commercial-candidate:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: inmusic-software/mpc-plugin-builder-sdk
+          ref: e78bad508a305a92443758eb2bc8b428e9e7a687
+          path: sdk
+      - run: pip install pillow numpy scipy
+      - name: Provision PUBLIC key only and disable unsigned demos
+        env:
+          LIBERTY_PUBLIC_KEY: ${{ inputs.public_key }}
+        run: |
+          set -euo pipefail
+          [[ "$LIBERTY_PUBLIC_KEY" =~ ^[0-9a-f]{64}$ ]]
+          printf '%s\n' "$LIBERTY_PUBLIC_KEY" > /tmp/liberty-public.hex
+          python tools/license_expansion.py policy /tmp/liberty-public.hex /tmp/LicensePolicy.h
+          cp /tmp/LicensePolicy.h plugins/Infinity/src/LicensePolicy.h
+          c++ -std=c++17 -O2 -pthread -I sdk/framework tests/expansion_license.cpp -o /tmp/infinity-license -ldl
+          /tmp/infinity-license
+      - run: python tools/generate_samples.py
+      - run: python tools/pack_factory.py
+      - run: python tools/retro_assets.py
+      - run: python tools/enable_sdk_threads.py
+      - run: python sdk/tools/build.py plugins/Infinity --target native
+      - run: python tools/make_retro_skin.py
+      - run: python tools/enable_sdk_threads.py
+      - run: python sdk/tools/build.py plugins/Infinity
+      - run: python sdk/tools/package.py plugins/Infinity
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Liberty-Infinity-MPC-PRODUCTION-KEY-CANDIDATE
+          path: plugins/Infinity/dist/*.zip
+          if-no-files-found: error

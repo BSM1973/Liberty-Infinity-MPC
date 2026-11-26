@@ -58,7 +58,7 @@ for ti,(name,indices) in enumerate(groups):
       ("Q-Links",g.Obj(("Q-Link %d"%(j+1),indices[j] if j<len(indices) else -1) for j in range(16)))))
 # Native Library Manager: controls backed by actual DSP parameter handles.
 libchildren=[]
-for index,title,x in ((39,"COLLECTION",32),(40,"CATEGORIE",340),(41,"PRESET",648),(42,"PRE-ECOUTE",956)):
+for index,title,x in ((39,"COLLECTION",32),(40,"CATÉGORIE",340),(41,"PRESET",648),(42,"PRÉÉCOUTE",956)):
     name=f"library{index}";param=by[index];w=292;h=110
     parts=[label("name",title,rect(5,8,w-10,26),size=20),
            g.entry("value","Label",g.label_data("Value","ffd5b06b",23,"horizontallyCentred verticallyCentred"),rect(8,44,w-16,34),"No","Show","Always")]

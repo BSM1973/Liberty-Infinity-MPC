@@ -81,3 +81,6 @@ Dedicated LIBRARIES tab with five fixed slot illustrations and four actual param
 ### Signed commercial expansion receipts (development)
 
 Vendored Monocypher 4.0.2, pinned commit 0d85f98c9d9b0227e42cf795cb527dff372b40a4, BSD-2-Clause or CC0-1.0. Offline issuer and native verifier use EdDSA-BLAKE2b; signed receipt binds collection UUID, opaque order ID, map and PCM BLAKE2b-256 hashes. The verifier hashes file contents at construction, not audio processing. Production key is deliberately unprovisioned and dev DEMO policy is enabled. A genuine release must provision the public key, disable unsigned demo, re-test performance and verify receipt issuance. Receipt can be copied with the pack: no device binding/DRM or revocation. No real paid license issued. See docs/expansion-licensing.md.
+
+## v0.9.10 Expansion Store candidate
+Cinematic Horizons: 100 unique electronic/cinematic preset renders, 1000 stereo source WAVs, 44.1kHz PCM24, five roots and two velocity groups, separate DEMO artifact. No acoustic recordings or listening certification. New offline manager copies installed covers into MPC skin without touching Factory or native binaries. Native tests validate 100 presets, RMS/peak/cache. Manual production workflow accepts public key only and disables unsigned demo; no commercial key provisioned. See docs/store-ready.md.
