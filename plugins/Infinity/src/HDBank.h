@@ -18,6 +18,8 @@
 #include <cstring>
 #include <cstdlib>
 
+#include "LicenseCrypto.h"
+
 namespace hd {
 constexpr int rate=44100,frames=rate*2,zones=5,velocities=4,maxLayers=4;
 constexpr int roots[]={36,48,60,72,84};
@@ -62,6 +64,7 @@ struct SampleRecord {
     uint64_t offset=0; int length=frames,channels=1,sampleRate=rate,root=60,streamId=-1;
 };
 #include "StreamCache.h"
+#include "LicenseReceipt.h"
 #include "ExpansionCatalog.h"
 struct DecodedZone { std::shared_ptr<std::vector<int32_t>> pcm; SampleRecord info; };
 struct Slot {

@@ -6,4 +6,4 @@ On MPC choose the new LIBRARIES tab. Select Collection 0–4, Categorie (Toutes 
 
 Cover illustrations are static slot art. A pack's Cover.png is stored separately; the pinned SDK does not provide a proven runtime image loading or file picker API. Native skin replacement strings are static, so runtime formatValue names/counts must be verified on actual MPC. No fictitious installation button: use the existing offline installer with the host stopped, then reopen the plugin. The demo pack uses three original synthetic sample renders, not new acoustic recordings. Copy its files into Content/Expansions/01 (or another unused slot). Never overwrite an occupied slot or move collections referenced in projects. Preserve Factory.pcm.
 
-Commercial authorization still requires a provisioned production public key, verification tests and a release policy disabling development demo receipts; see licensing documentation. No commercial license has been issued.
+Commercial receipt verifier and offline issuing tool are implemented, but production public key is unprovisioned and development demo policy enabled. See docs/expansion-licensing.md. No commercial license has been issued.

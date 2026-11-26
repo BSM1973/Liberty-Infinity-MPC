@@ -22,6 +22,8 @@ jobs:
           path: sdk
       - run: pip install pillow numpy scipy
       - run: python tools/test_multisamples.py
+      - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/expansion_license.cpp -o /tmp/infinity-license -ldl
+      - run: set -o pipefail; /tmp/infinity-license | tee expansion-license-validation.txt
       - run: set -o pipefail; python tools/test_expansion_pack.py | tee expansion-authoring.txt
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/expansion.cpp -o /tmp/infinity-expansion -ldl
       - run: set -o pipefail; /tmp/infinity-expansion | tee expansion-validation.txt
@@ -99,6 +101,7 @@ jobs:
           path: |
             stereo-validation.txt
             expansion-validation.txt
+            expansion-license-validation.txt
             expansion-authoring.txt
             streaming-60s.csv
             ui-static-validation.txt
@@ -133,6 +136,8 @@ jobs:
       - run: python tools/qc_ui.py
       - run: clang++ -std=c++17 -O2 -pthread -I sdk/framework tests/expansion.cpp -o /tmp/infinity-expansion-mac
       - run: /tmp/infinity-expansion-mac
+      - run: clang++ -std=c++17 -O2 -pthread -I sdk/framework tests/expansion_license.cpp -o /tmp/infinity-license-mac
+      - run: /tmp/infinity-license-mac
       - run: clang++ -std=c++17 -O2 -pthread -I sdk/framework tests/articulations.cpp -o /tmp/infinity-art-mac
       - run: /tmp/infinity-art-mac
       - run: clang++ -std=c++17 -O2 -pthread -I sdk/framework tests/streaming_qc.cpp -o /tmp/infinity-stream-qc-mac

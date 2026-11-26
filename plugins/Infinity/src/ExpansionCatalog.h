@@ -64,9 +64,7 @@ class ExpansionCatalog {
             std::string extra;if(s>>extra)return {};
         }
         if(!in.eof()||ex->id.empty()||ex->name.empty())return {};
-        // Only development entitlements accepted; unsigned receipts are not commercial security.
-        std::ifstream lic(dir+"/License.txt");std::string version,id,mode,extra;
-        if(!(lic>>version>>id>>mode)||version!="LINFLIC1"||id!=ex->id||mode!="DEMO"||(lic>>extra))return {};
+        if(!verifyExpansionReceipt(dir,ex->id,productionPublicKey,allowUnsignedDemo))return {};
         bool any=false;
         for(auto& q:ex->presets)if(q){
             any=true;if(!q->layers)return {};
