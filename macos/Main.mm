@@ -16,6 +16,7 @@ static NSArray *uiPages;
 static NSArray<NSImage*> *pagePanels;
 static int uiPage=0;
 static NSImage *factoryArt;
+static NSMutableDictionary<NSNumber*,NSImage*> *expansionCovers;
 static NSDictionary<NSString*,NSImage*> *faces;
 static int pcmSelection=-1;
 static int current=0,category=0,page=0,style=0,visible[500],visibleCount=0;
@@ -172,8 +173,7 @@ static const char *keyMap="awsedftgyhujkolp";
         // Use the same actual collection selection menu; no fictitious install button.
         for(int slot=0;slot<4;++slot)if(auto* ex=synth->expansion(slot)){
             CGFloat x=32+246*(slot+1);
-            NSString *path=[[NSString stringWithUTF8String:ex->path.c_str()] stringByDeletingLastPathComponent];
-            NSImage *cover=[[NSImage alloc]initWithContentsOfFile:[path stringByAppendingPathComponent:@"Cover.png"]];
+            NSImage *cover=expansionCovers[@(slot)];
             if(cover)[cover drawInRect:NSMakeRect(x+41,106,150,150) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
             [[NSColor colorWithWhite:.10 alpha:1]setFill];NSRectFill(NSMakeRect(x+8,258,216,58));
             text([NSString stringWithUTF8String:ex->name.c_str()],NSMakeRect(x+8,264,216,26),14,ink(),true);
@@ -309,6 +309,9 @@ static const char *keyMap="awsedftgyhujkolp";
     if(!controls||uiPages.count!=6||pagePanels.count!=6||!factoryArt||faces.count!=7){NSLog(@"Missing resources");[NSApp terminate:nil];return;}
     NSString *support=[libraryDirectory() stringByDeletingLastPathComponent];if(support)setenv("INFINITY_EXPANSION_ROOT",support.fileSystemRepresentation,1);
     synth=std::make_unique<Infinity>();synth->setProgram(0);
+    expansionCovers=[NSMutableDictionary new];for(int slot=0;slot<4;++slot)if(auto* ex=synth->expansion(slot)){
+        NSString *path=[[NSString stringWithUTF8String:ex->path.c_str()] stringByDeletingLastPathComponent];NSImage *cover=[[NSImage alloc]initWithContentsOfFile:[path stringByAppendingPathComponent:@"Cover.png"]];if(cover)expansionCovers[@(slot)]=cover;
+    }
     NSUserDefaults *d=NSUserDefaults.standardUserDefaults;favorites=[NSMutableSet setWithArray:[d arrayForKey:@"InfinityFavoritesV1"]?:@[]];userPresets=[[d dictionaryForKey:@"InfinityUserPresetsV1"] mutableCopy]?:[NSMutableDictionary new];loadLibraries();rebuild();
     if(synth->loadedZones()!=factoryCount*5*4){NSAlert *a=[NSAlert new];a.messageText=@"Banque sonore incomplète";[a runModal];[NSApp terminate:nil];return;}
     if(MIDIClientCreate(CFSTR("Liberty Infinity"),nullptr,nullptr,&midiClient)==noErr && MIDIInputPortCreate(midiClient,CFSTR("Input"),midiRead,nullptr,&midiPort)==noErr){for(ItemCount i=0;i<MIDIGetNumberOfSources();++i)MIDIPortConnectSource(midiPort,MIDIGetSource(i),nullptr);}

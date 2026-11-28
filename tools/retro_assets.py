@@ -118,7 +118,10 @@ for page in L["pages"][:-1]:
             film=Image.open(A/f["asset"]);assert film.size==(fw,fh*127);asset=film.crop((0,60*fh,fw,61*fh))
         preview.alpha_composite(asset.convert("RGBA"),(x+(w-fw)//2,y+fy))
         draw.text((x+w/2,y+f["labelY"]),c["name"],font=font(f["labelSize"]),fill=WHITE,anchor="mt")
-        draw.text((x+w/2,y+f["valueY"]),("ON" if c["i"] in (8,15) else "OFF") if c["kind"]=="toggle" else "50 %",font=font(f["valueSize"]),fill=LIGHT,anchor="mt")
+        if c["kind"]=="selector":
+            draw.text((x+w/2-8,y+fy+fh/2),{19:"LP",20:"12",24:"Stereo",32:"Hall"}[c["i"]],font=font(17),fill=WHITE,anchor="mm")
+        else:
+            draw.text((x+w/2,y+f["valueY"]),("ON" if c["i"] in (8,15) else "OFF") if c["kind"]=="toggle" else "50 %",font=font(f["valueSize"]),fill=LIGHT,anchor="mt")
     if page["asset"]=="main":
         draw.text((666,159),"FACTORY 1 / LIBRARIES",font=font(25),fill=G,anchor="mt")
         draw.text((666,270),"BA Deep Bass",font=font(46),fill=WHITE,anchor="mt")
@@ -132,8 +135,8 @@ print("PASS five distinct panels, 39 unique parameter slots, no overlaps")
 # Dedicated MPC Library Manager: static slot artwork, not installed pack covers.
 lib=Image.new("RGB",(1280,628),(15,15,18));ld=ImageDraw.Draw(lib)
 ld.rounded_rectangle((4,4,1275,623),radius=8,outline=G,width=2)
-ld.text((32,20),"LIBERTY INFINITY  |  LIBRARY MANAGER",font=font(30),fill=LIGHT)
-ld.text((32,62),"FACTORY 1 + 4 EMPLACEMENTS PCM INDEPENDANTS",font=font(17),fill=WHITE)
+ld.text((32,56),"LIBERTY INFINITY  |  LIBRARY MANAGER",font=font(24),fill=LIGHT)
+ld.text((1250,72),"FACTORY 1 + 4 EMPLACEMENTS PCM INDÉPENDANTS",font=font(15),fill=WHITE,anchor="rm")
 for i in range(5):
     x=32+246*i;y=98
     ld.rounded_rectangle((x,y,x+232,y+224),radius=8,outline=G,width=2,fill=(25,26,31))
