@@ -95,12 +95,15 @@ sel.resize((156,62),Image.Resampling.LANCZOS).save(A/"selector_156.png")
 for page in L["pages"][:-1]:
     controls=page["controls"];im=panel_background(page["name"]);d=ImageDraw.Draw(im)
     if page["asset"]=="main":
-        for rect in ((16,121,286,610),(296,121,1036,610),(1046,121,1260,610)):
+        for rect in ((16,121,1036,610),(1046,121,1260,610)):
             d.rounded_rectangle(rect,radius=9,fill=(11,13,17),outline=(104,81,45),width=2)
-        d.text((151,128),"FILTER MODIFIER",font=font(14),fill=G,anchor="mt")
         d.text((1153,130),"OUTPUT",font=font(16),fill=G,anchor="mt")
         im.paste(factory.resize((166,166),Image.Resampling.LANCZOS),(1070,168))
     else:
+        if page["asset"]=="filter":
+            for rect,title,cx in (((16,120,644,596),"FILTER MODIFIER",330),((654,120,1260,596),"MASTER FILTER",957)):
+                d.rounded_rectangle(rect,radius=9,fill=(15,16,20),outline=G,width=2)
+                d.text((cx,132),title,font=font(20),fill=LIGHT,anchor="mt")
         for c in controls:
             x,y,w,h=(c[k] for k in ("x","y","w","h"))
             d.rounded_rectangle((x+3,y+3,x+w-3,y+h-3),radius=10,fill=(12,14,18),outline=(87,68,38),width=2)
@@ -123,9 +126,9 @@ for page in L["pages"][:-1]:
         else:
             draw.text((x+w/2,y+f["valueY"]),("ON" if c["i"] in (8,15) else "OFF") if c["kind"]=="toggle" else "50 %",font=font(f["valueSize"]),fill=LIGHT,anchor="mt")
     if page["asset"]=="main":
-        draw.text((666,159),"FACTORY 1 / LIBRARIES",font=font(25),fill=G,anchor="mt")
-        draw.text((666,270),"BA Deep Bass",font=font(46),fill=WHITE,anchor="mt")
-        draw.text((666,425),"100 FACTORY PRESETS",font=font(22),fill=LIGHT,anchor="mt")
+        draw.text((526,159),"FACTORY 1 / LIBRARIES",font=font(25),fill=G,anchor="mt")
+        draw.text((526,270),"BA Deep Bass",font=font(46),fill=WHITE,anchor="mt")
+        draw.text((526,425),"100 FACTORY PRESETS",font=font(22),fill=LIGHT,anchor="mt")
     preview.convert("RGB").save(A/(page["asset"]+"-preview.png"))
     for a,b in itertools.combinations(controls,2):
         assert a["x"]+a["w"]<=b["x"] or b["x"]+b["w"]<=a["x"] or a["y"]+a["h"]<=b["y"] or b["y"]+b["h"]<=a["y"],(page["name"],a["i"],b["i"])

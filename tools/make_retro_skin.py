@@ -10,7 +10,7 @@ params=g.load_params(str(P/"build/params.json"))
 by={p.index:p for p in params}
 assert set(by)=={c["i"] for c in L["controls"]}|{39,40,41,42}, "Layout and DSP parameter mismatch"
 out=P/"skins";out.mkdir(exist_ok=True)
-for f in ("main.png","master-filter.png","delay.png","reverb.png","amp-modifier.png","libraries.png","factory-1.png","gold_knob_64.png","gold_knob_104.png","power_40_on.png","power_40_off.png","power_76_on.png","power_76_off.png","selector_156.png"):shutil.copy2(P/"assets"/f,out/f)
+for f in ("main.png","filter.png","delay.png","reverb.png","amp-modifier.png","libraries.png","factory-1.png","gold_knob_64.png","gold_knob_104.png","power_40_on.png","power_40_off.png","power_76_on.png","power_76_off.png","selector_156.png"):shutil.copy2(P/"assets"/f,out/f)
 o=g.obj
 def rect(x,y,w,h):return f"{x} {y} {w} {h}"
 def label(n,t,xy,colour="fff9f9f9",size=16):
@@ -22,9 +22,9 @@ for c in L["controls"]:
     p=by[i]; name="retro"+str(i)
     if i==0:
         parts=[label("hint","FACTORY 1 / LIBRARIES - SOUND LIST",rect(5,18,w-10,36),size=24),
-               g.entry("current","Label",g.label_data("Value","fff9f9f9",35,"horizontallyCentred verticallyCentred"),rect(10,100,w-20,120),"No","Show","Always"),
-               label("categories","FACTORY 1: 100 SOUNDS | LIB 1-4: EXTENSIONS",rect(10,240,w-20,38),size=22),
-               label("native","USE MPC PRESET SELECTOR TO LOAD / SAVE PROGRAMS",rect(10,300,w-20,35),size=16)]
+               g.entry("current","Label",g.label_data("Value","fff9f9f9",35,"horizontallyCentred verticallyCentred"),rect(10,105,w-20,140),"No","Show","Always"),
+               label("categories","FACTORY 1: 100 SOUNDS | LIB 1-4: EXTENSIONS",rect(10,265,w-20,38),size=22),
+               label("native","USE MPC PRESET SELECTOR TO LOAD / SAVE PROGRAMS",rect(10,330,w-20,35),size=16)]
         actions=g.control_actions("menu overlay")
     else:
         face=c["face"];fw,fh,fy=(face[k] for k in ("w","h","y"));fx=(w-fw)//2

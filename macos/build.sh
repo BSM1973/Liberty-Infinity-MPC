@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 APP="dist/Liberty Infinity MPC Test.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 xcrun clang++ -arch arm64 -std=c++17 -O2 -fobjc-arc -I sdk/framework macos/Main.mm -framework Cocoa -framework AVFoundation -framework CoreMIDI -o "$APP/Contents/MacOS/Infinity"
-cp plugins/Infinity/layout.json plugins/Infinity/assets/{main,master-filter,delay,reverb,amp-modifier,libraries,factory-1,gold_knob_64,gold_knob_104,power_40_on,power_40_off,power_76_on,power_76_off,selector_156}.png "$APP/Contents/Resources/"
+cp plugins/Infinity/layout.json plugins/Infinity/assets/{main,filter,delay,reverb,amp-modifier,libraries,factory-1,gold_knob_64,gold_knob_104,power_40_on,power_40_off,power_76_on,power_76_off,selector_156}.png "$APP/Contents/Resources/"
 cp -R plugins/Infinity/Content "$APP/Contents/Resources/"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

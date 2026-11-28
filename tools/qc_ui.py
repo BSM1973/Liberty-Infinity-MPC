@@ -13,7 +13,17 @@ for path in [root/"macos/Main.mm",root/"macos/MultisampleStudio.h",root/"macos/N
     assert not any(unicodedata.category(c)=="Cc" and c not in "\n\t\r" for c in s),path
 layout=json.loads((root/"plugins/Infinity/layout.json").read_text())
 # The Sound control is intentionally replaced by the standalone browser.
-assert len(layout["pages"])==6
+assert [p["name"] for p in layout["pages"]]==["MAIN","FILTER","DELAY","REVERB","AMP MODIFIER","LIBRARIES"]
+assert set(layout["pages"][0]["ids"])=={0,7}
+assert set(layout["pages"][1]["ids"])=={5,8,9,10,11,12,13,14,18,19,20,21,22}
+assert all(len(p["ids"])<=16 for p in layout["pages"])
+verify([("tab"+str(j),16+j*208,724,200,36) for j in range(6)],1280,768)
+# macOS browser uses actual native search field and row hitboxes.
+verify([("collection",310,151,708,36),("style",32,202,262,30),("search",310,202,708,30),
+        *[("category"+str(i),32,242+i*22,262,22) for i in range(13)],
+        *[("preset"+str(i),310,242+i*32,708,30) for i in range(8)],
+        ("favorites",32,536,262,32),("paging",310,508,708,28),
+        ("actions",310,542,708,30),("current",310,578,708,25),("volume",1054,402,190,183)],1280,628)
 assert sorted(c["i"] for c in layout["controls"])==list(range(39))
 for page in layout["pages"]:
     verify([(str(c["i"]),c["x"],c["y"],c["w"],c["h"]) for c in page["controls"]],1280,628)

@@ -93,3 +93,6 @@ Two-pass native render calibration using 100ms active-window RMS, bounded per-ex
 
 ## Black Gold page separation (UI-only)
 Six actual MPC pages MAIN, MASTER FILTER, DELAY, REVERB, AMP MODIFIER, LIBRARIES. MAIN keeps Filter Modifier, Sound and Volume, all other controls isolated on their own pages. Shared large 64/104px knobs, dedicated original Factory 1 artwork, enlarged Mac browser, Q-Link mappings per page. No audio code or parameter ID change. Mac test library page has collection selection and audition; MPC native manager preserves its existing four controls. Static geometry tests per page and preview artifacts; verify physical display manually. Production workflow stays pinned to the previous validated commit pending ergonomic approval.
+
+## Black Gold FILTER consolidation
+MAIN contains Sound and Volume only. FILTER joins Filter Modifier (8 controls) and Master Filter (5 controls), in two clearly labelled sections with 104px knobs and one 13-parameter Q-Link bank. MPC uses the native bottom function tabs (six pages, fnKeyIndex 0–5, no duplicate top navigation). Mac test mirrors the order at the bottom of its window; enlarged browser retains all controls, with 8 presets per page. No DSP, preset, PCM or parameter ID changes. Factory artwork preserved. Commercial pin unchanged until this layout is approved.

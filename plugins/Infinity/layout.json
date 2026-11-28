@@ -6,184 +6,18 @@
       "name": "MAIN",
       "asset": "main",
       "ids": [
-        8,
-        5,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
+        0,
         7
       ],
       "controls": [
         {
-          "i": 8,
-          "name": "ACTIVATION",
-          "x": 24,
-          "y": 152,
-          "w": 124,
-          "h": 112,
-          "kind": "toggle",
-          "face": {
-            "w": 40,
-            "h": 36,
-            "y": 4,
-            "asset": "power_40",
-            "labelY": 73,
-            "valueY": 91,
-            "labelH": 18,
-            "valueH": 16,
-            "labelSize": 13,
-            "valueSize": 13
-          }
-        },
-        {
-          "i": 5,
-          "name": "CUTOFF",
-          "x": 24,
-          "y": 264,
-          "w": 124,
-          "h": 112,
-          "kind": "knob",
-          "face": {
-            "w": 64,
-            "h": 64,
-            "y": 4,
-            "asset": "gold_knob_64.png",
-            "labelY": 73,
-            "valueY": 91,
-            "labelH": 18,
-            "valueH": 16,
-            "labelSize": 13,
-            "valueSize": 13
-          }
-        },
-        {
-          "i": 9,
-          "name": "ENVELOPPE",
-          "x": 24,
-          "y": 376,
-          "w": 124,
-          "h": 112,
-          "kind": "knob",
-          "face": {
-            "w": 64,
-            "h": 64,
-            "y": 4,
-            "asset": "gold_knob_64.png",
-            "labelY": 73,
-            "valueY": 91,
-            "labelH": 18,
-            "valueH": 16,
-            "labelSize": 13,
-            "valueSize": 13
-          }
-        },
-        {
-          "i": 10,
-          "name": "RÉSONANCE",
-          "x": 24,
-          "y": 488,
-          "w": 124,
-          "h": 112,
-          "kind": "knob",
-          "face": {
-            "w": 64,
-            "h": 64,
-            "y": 4,
-            "asset": "gold_knob_64.png",
-            "labelY": 73,
-            "valueY": 91,
-            "labelH": 18,
-            "valueH": 16,
-            "labelSize": 13,
-            "valueSize": 13
-          }
-        },
-        {
-          "i": 11,
-          "name": "ATTACK",
-          "x": 152,
-          "y": 152,
-          "w": 124,
-          "h": 112,
-          "kind": "knob",
-          "face": {
-            "w": 64,
-            "h": 64,
-            "y": 4,
-            "asset": "gold_knob_64.png",
-            "labelY": 73,
-            "valueY": 91,
-            "labelH": 18,
-            "valueH": 16,
-            "labelSize": 13,
-            "valueSize": 13
-          }
-        },
-        {
-          "i": 12,
-          "name": "DECAY",
-          "x": 152,
-          "y": 264,
-          "w": 124,
-          "h": 112,
-          "kind": "knob",
-          "face": {
-            "w": 64,
-            "h": 64,
-            "y": 4,
-            "asset": "gold_knob_64.png",
-            "labelY": 73,
-            "valueY": 91,
-            "labelH": 18,
-            "valueH": 16,
-            "labelSize": 13,
-            "valueSize": 13
-          }
-        },
-        {
-          "i": 13,
-          "name": "SUSTAIN",
-          "x": 152,
-          "y": 376,
-          "w": 124,
-          "h": 112,
-          "kind": "knob",
-          "face": {
-            "w": 64,
-            "h": 64,
-            "y": 4,
-            "asset": "gold_knob_64.png",
-            "labelY": 73,
-            "valueY": 91,
-            "labelH": 18,
-            "valueH": 16,
-            "labelSize": 13,
-            "valueSize": 13
-          }
-        },
-        {
-          "i": 14,
-          "name": "RELEASE",
-          "x": 152,
-          "y": 488,
-          "w": 124,
-          "h": 112,
-          "kind": "knob",
-          "face": {
-            "w": 64,
-            "h": 64,
-            "y": 4,
-            "asset": "gold_knob_64.png",
-            "labelY": 73,
-            "valueY": 91,
-            "labelH": 18,
-            "valueH": 16,
-            "labelSize": 13,
-            "valueSize": 13
-          }
+          "i": 0,
+          "name": "FACTORY",
+          "x": 26,
+          "y": 130,
+          "w": 1000,
+          "h": 460,
+          "kind": "browser"
         },
         {
           "i": 7,
@@ -205,22 +39,21 @@
             "labelSize": 17,
             "valueSize": 17
           }
-        },
-        {
-          "i": 0,
-          "name": "FACTORY",
-          "x": 306,
-          "y": 130,
-          "w": 720,
-          "h": 390,
-          "kind": "browser"
         }
       ]
     },
     {
-      "name": "MASTER FILTER",
-      "asset": "master-filter",
+      "name": "FILTER",
+      "asset": "filter",
       "ids": [
+        8,
+        5,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
         18,
         19,
         20,
@@ -229,11 +62,179 @@
       ],
       "controls": [
         {
+          "i": 8,
+          "name": "ACTIVATION",
+          "x": 24,
+          "y": 162,
+          "w": 150,
+          "h": 200,
+          "kind": "toggle",
+          "face": {
+            "w": 76,
+            "h": 70,
+            "y": 14,
+            "asset": "power_76",
+            "labelY": 127,
+            "valueY": 152,
+            "labelH": 22,
+            "valueH": 22,
+            "labelSize": 17,
+            "valueSize": 17
+          }
+        },
+        {
+          "i": 5,
+          "name": "CUTOFF",
+          "x": 178,
+          "y": 162,
+          "w": 150,
+          "h": 200,
+          "kind": "knob",
+          "face": {
+            "w": 104,
+            "h": 104,
+            "y": 14,
+            "asset": "gold_knob_104.png",
+            "labelY": 127,
+            "valueY": 152,
+            "labelH": 22,
+            "valueH": 22,
+            "labelSize": 17,
+            "valueSize": 17
+          }
+        },
+        {
+          "i": 9,
+          "name": "ENVELOPPE",
+          "x": 332,
+          "y": 162,
+          "w": 150,
+          "h": 200,
+          "kind": "knob",
+          "face": {
+            "w": 104,
+            "h": 104,
+            "y": 14,
+            "asset": "gold_knob_104.png",
+            "labelY": 127,
+            "valueY": 152,
+            "labelH": 22,
+            "valueH": 22,
+            "labelSize": 17,
+            "valueSize": 17
+          }
+        },
+        {
+          "i": 10,
+          "name": "RÉSONANCE",
+          "x": 486,
+          "y": 162,
+          "w": 150,
+          "h": 200,
+          "kind": "knob",
+          "face": {
+            "w": 104,
+            "h": 104,
+            "y": 14,
+            "asset": "gold_knob_104.png",
+            "labelY": 127,
+            "valueY": 152,
+            "labelH": 22,
+            "valueH": 22,
+            "labelSize": 17,
+            "valueSize": 17
+          }
+        },
+        {
+          "i": 11,
+          "name": "ATTACK",
+          "x": 24,
+          "y": 376,
+          "w": 150,
+          "h": 200,
+          "kind": "knob",
+          "face": {
+            "w": 104,
+            "h": 104,
+            "y": 14,
+            "asset": "gold_knob_104.png",
+            "labelY": 127,
+            "valueY": 152,
+            "labelH": 22,
+            "valueH": 22,
+            "labelSize": 17,
+            "valueSize": 17
+          }
+        },
+        {
+          "i": 12,
+          "name": "DECAY",
+          "x": 178,
+          "y": 376,
+          "w": 150,
+          "h": 200,
+          "kind": "knob",
+          "face": {
+            "w": 104,
+            "h": 104,
+            "y": 14,
+            "asset": "gold_knob_104.png",
+            "labelY": 127,
+            "valueY": 152,
+            "labelH": 22,
+            "valueH": 22,
+            "labelSize": 17,
+            "valueSize": 17
+          }
+        },
+        {
+          "i": 13,
+          "name": "SUSTAIN",
+          "x": 332,
+          "y": 376,
+          "w": 150,
+          "h": 200,
+          "kind": "knob",
+          "face": {
+            "w": 104,
+            "h": 104,
+            "y": 14,
+            "asset": "gold_knob_104.png",
+            "labelY": 127,
+            "valueY": 152,
+            "labelH": 22,
+            "valueH": 22,
+            "labelSize": 17,
+            "valueSize": 17
+          }
+        },
+        {
+          "i": 14,
+          "name": "RELEASE",
+          "x": 486,
+          "y": 376,
+          "w": 150,
+          "h": 200,
+          "kind": "knob",
+          "face": {
+            "w": 104,
+            "h": 104,
+            "y": 14,
+            "asset": "gold_knob_104.png",
+            "labelY": 127,
+            "valueY": 152,
+            "labelH": 22,
+            "valueH": 22,
+            "labelSize": 17,
+            "valueSize": 17
+          }
+        },
+        {
           "i": 18,
           "name": "ACTIVATION",
-          "x": 84,
-          "y": 124,
-          "w": 360,
+          "x": 662,
+          "y": 162,
+          "w": 190,
           "h": 200,
           "kind": "toggle",
           "face": {
@@ -252,9 +253,9 @@
         {
           "i": 19,
           "name": "TYPE",
-          "x": 460,
-          "y": 124,
-          "w": 360,
+          "x": 860,
+          "y": 162,
+          "w": 190,
           "h": 200,
           "kind": "selector",
           "face": {
@@ -273,9 +274,9 @@
         {
           "i": 20,
           "name": "PENTE",
-          "x": 836,
-          "y": 124,
-          "w": 360,
+          "x": 1058,
+          "y": 162,
+          "w": 190,
           "h": 200,
           "kind": "selector",
           "face": {
@@ -294,9 +295,9 @@
         {
           "i": 21,
           "name": "CUTOFF",
-          "x": 84,
-          "y": 342,
-          "w": 360,
+          "x": 662,
+          "y": 376,
+          "w": 190,
           "h": 200,
           "kind": "knob",
           "face": {
@@ -315,9 +316,9 @@
         {
           "i": 22,
           "name": "RÉSONANCE",
-          "x": 460,
-          "y": 342,
-          "w": 360,
+          "x": 860,
+          "y": 376,
+          "w": 190,
           "h": 200,
           "kind": "knob",
           "face": {
@@ -902,172 +903,13 @@
   ],
   "controls": [
     {
-      "i": 8,
-      "name": "ACTIVATION",
-      "x": 24,
-      "y": 152,
-      "w": 124,
-      "h": 112,
-      "kind": "toggle",
-      "face": {
-        "w": 40,
-        "h": 36,
-        "y": 4,
-        "asset": "power_40",
-        "labelY": 73,
-        "valueY": 91,
-        "labelH": 18,
-        "valueH": 16,
-        "labelSize": 13,
-        "valueSize": 13
-      }
-    },
-    {
-      "i": 5,
-      "name": "CUTOFF",
-      "x": 24,
-      "y": 264,
-      "w": 124,
-      "h": 112,
-      "kind": "knob",
-      "face": {
-        "w": 64,
-        "h": 64,
-        "y": 4,
-        "asset": "gold_knob_64.png",
-        "labelY": 73,
-        "valueY": 91,
-        "labelH": 18,
-        "valueH": 16,
-        "labelSize": 13,
-        "valueSize": 13
-      }
-    },
-    {
-      "i": 9,
-      "name": "ENVELOPPE",
-      "x": 24,
-      "y": 376,
-      "w": 124,
-      "h": 112,
-      "kind": "knob",
-      "face": {
-        "w": 64,
-        "h": 64,
-        "y": 4,
-        "asset": "gold_knob_64.png",
-        "labelY": 73,
-        "valueY": 91,
-        "labelH": 18,
-        "valueH": 16,
-        "labelSize": 13,
-        "valueSize": 13
-      }
-    },
-    {
-      "i": 10,
-      "name": "RÉSONANCE",
-      "x": 24,
-      "y": 488,
-      "w": 124,
-      "h": 112,
-      "kind": "knob",
-      "face": {
-        "w": 64,
-        "h": 64,
-        "y": 4,
-        "asset": "gold_knob_64.png",
-        "labelY": 73,
-        "valueY": 91,
-        "labelH": 18,
-        "valueH": 16,
-        "labelSize": 13,
-        "valueSize": 13
-      }
-    },
-    {
-      "i": 11,
-      "name": "ATTACK",
-      "x": 152,
-      "y": 152,
-      "w": 124,
-      "h": 112,
-      "kind": "knob",
-      "face": {
-        "w": 64,
-        "h": 64,
-        "y": 4,
-        "asset": "gold_knob_64.png",
-        "labelY": 73,
-        "valueY": 91,
-        "labelH": 18,
-        "valueH": 16,
-        "labelSize": 13,
-        "valueSize": 13
-      }
-    },
-    {
-      "i": 12,
-      "name": "DECAY",
-      "x": 152,
-      "y": 264,
-      "w": 124,
-      "h": 112,
-      "kind": "knob",
-      "face": {
-        "w": 64,
-        "h": 64,
-        "y": 4,
-        "asset": "gold_knob_64.png",
-        "labelY": 73,
-        "valueY": 91,
-        "labelH": 18,
-        "valueH": 16,
-        "labelSize": 13,
-        "valueSize": 13
-      }
-    },
-    {
-      "i": 13,
-      "name": "SUSTAIN",
-      "x": 152,
-      "y": 376,
-      "w": 124,
-      "h": 112,
-      "kind": "knob",
-      "face": {
-        "w": 64,
-        "h": 64,
-        "y": 4,
-        "asset": "gold_knob_64.png",
-        "labelY": 73,
-        "valueY": 91,
-        "labelH": 18,
-        "valueH": 16,
-        "labelSize": 13,
-        "valueSize": 13
-      }
-    },
-    {
-      "i": 14,
-      "name": "RELEASE",
-      "x": 152,
-      "y": 488,
-      "w": 124,
-      "h": 112,
-      "kind": "knob",
-      "face": {
-        "w": 64,
-        "h": 64,
-        "y": 4,
-        "asset": "gold_knob_64.png",
-        "labelY": 73,
-        "valueY": 91,
-        "labelH": 18,
-        "valueH": 16,
-        "labelSize": 13,
-        "valueSize": 13
-      }
+      "i": 0,
+      "name": "FACTORY",
+      "x": 26,
+      "y": 130,
+      "w": 1000,
+      "h": 460,
+      "kind": "browser"
     },
     {
       "i": 7,
@@ -1091,20 +933,179 @@
       }
     },
     {
-      "i": 0,
-      "name": "FACTORY",
-      "x": 306,
-      "y": 130,
-      "w": 720,
-      "h": 390,
-      "kind": "browser"
+      "i": 8,
+      "name": "ACTIVATION",
+      "x": 24,
+      "y": 162,
+      "w": 150,
+      "h": 200,
+      "kind": "toggle",
+      "face": {
+        "w": 76,
+        "h": 70,
+        "y": 14,
+        "asset": "power_76",
+        "labelY": 127,
+        "valueY": 152,
+        "labelH": 22,
+        "valueH": 22,
+        "labelSize": 17,
+        "valueSize": 17
+      }
+    },
+    {
+      "i": 5,
+      "name": "CUTOFF",
+      "x": 178,
+      "y": 162,
+      "w": 150,
+      "h": 200,
+      "kind": "knob",
+      "face": {
+        "w": 104,
+        "h": 104,
+        "y": 14,
+        "asset": "gold_knob_104.png",
+        "labelY": 127,
+        "valueY": 152,
+        "labelH": 22,
+        "valueH": 22,
+        "labelSize": 17,
+        "valueSize": 17
+      }
+    },
+    {
+      "i": 9,
+      "name": "ENVELOPPE",
+      "x": 332,
+      "y": 162,
+      "w": 150,
+      "h": 200,
+      "kind": "knob",
+      "face": {
+        "w": 104,
+        "h": 104,
+        "y": 14,
+        "asset": "gold_knob_104.png",
+        "labelY": 127,
+        "valueY": 152,
+        "labelH": 22,
+        "valueH": 22,
+        "labelSize": 17,
+        "valueSize": 17
+      }
+    },
+    {
+      "i": 10,
+      "name": "RÉSONANCE",
+      "x": 486,
+      "y": 162,
+      "w": 150,
+      "h": 200,
+      "kind": "knob",
+      "face": {
+        "w": 104,
+        "h": 104,
+        "y": 14,
+        "asset": "gold_knob_104.png",
+        "labelY": 127,
+        "valueY": 152,
+        "labelH": 22,
+        "valueH": 22,
+        "labelSize": 17,
+        "valueSize": 17
+      }
+    },
+    {
+      "i": 11,
+      "name": "ATTACK",
+      "x": 24,
+      "y": 376,
+      "w": 150,
+      "h": 200,
+      "kind": "knob",
+      "face": {
+        "w": 104,
+        "h": 104,
+        "y": 14,
+        "asset": "gold_knob_104.png",
+        "labelY": 127,
+        "valueY": 152,
+        "labelH": 22,
+        "valueH": 22,
+        "labelSize": 17,
+        "valueSize": 17
+      }
+    },
+    {
+      "i": 12,
+      "name": "DECAY",
+      "x": 178,
+      "y": 376,
+      "w": 150,
+      "h": 200,
+      "kind": "knob",
+      "face": {
+        "w": 104,
+        "h": 104,
+        "y": 14,
+        "asset": "gold_knob_104.png",
+        "labelY": 127,
+        "valueY": 152,
+        "labelH": 22,
+        "valueH": 22,
+        "labelSize": 17,
+        "valueSize": 17
+      }
+    },
+    {
+      "i": 13,
+      "name": "SUSTAIN",
+      "x": 332,
+      "y": 376,
+      "w": 150,
+      "h": 200,
+      "kind": "knob",
+      "face": {
+        "w": 104,
+        "h": 104,
+        "y": 14,
+        "asset": "gold_knob_104.png",
+        "labelY": 127,
+        "valueY": 152,
+        "labelH": 22,
+        "valueH": 22,
+        "labelSize": 17,
+        "valueSize": 17
+      }
+    },
+    {
+      "i": 14,
+      "name": "RELEASE",
+      "x": 486,
+      "y": 376,
+      "w": 150,
+      "h": 200,
+      "kind": "knob",
+      "face": {
+        "w": 104,
+        "h": 104,
+        "y": 14,
+        "asset": "gold_knob_104.png",
+        "labelY": 127,
+        "valueY": 152,
+        "labelH": 22,
+        "valueH": 22,
+        "labelSize": 17,
+        "valueSize": 17
+      }
     },
     {
       "i": 18,
       "name": "ACTIVATION",
-      "x": 84,
-      "y": 124,
-      "w": 360,
+      "x": 662,
+      "y": 162,
+      "w": 190,
       "h": 200,
       "kind": "toggle",
       "face": {
@@ -1123,9 +1124,9 @@
     {
       "i": 19,
       "name": "TYPE",
-      "x": 460,
-      "y": 124,
-      "w": 360,
+      "x": 860,
+      "y": 162,
+      "w": 190,
       "h": 200,
       "kind": "selector",
       "face": {
@@ -1144,9 +1145,9 @@
     {
       "i": 20,
       "name": "PENTE",
-      "x": 836,
-      "y": 124,
-      "w": 360,
+      "x": 1058,
+      "y": 162,
+      "w": 190,
       "h": 200,
       "kind": "selector",
       "face": {
@@ -1165,9 +1166,9 @@
     {
       "i": 21,
       "name": "CUTOFF",
-      "x": 84,
-      "y": 342,
-      "w": 360,
+      "x": 662,
+      "y": 376,
+      "w": 190,
       "h": 200,
       "kind": "knob",
       "face": {
@@ -1186,9 +1187,9 @@
     {
       "i": 22,
       "name": "RÉSONANCE",
-      "x": 460,
-      "y": 342,
-      "w": 360,
+      "x": 860,
+      "y": 376,
+      "w": 190,
       "h": 200,
       "kind": "knob",
       "face": {
@@ -1710,9 +1711,9 @@
     }
   ],
   "browser": {
-    "x": 306,
+    "x": 26,
     "y": 130,
-    "w": 720,
-    "h": 390
+    "w": 1000,
+    "h": 460
   }
 }
