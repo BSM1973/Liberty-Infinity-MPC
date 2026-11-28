@@ -13,7 +13,10 @@ for path in [root/"macos/Main.mm",root/"macos/MultisampleStudio.h",root/"macos/N
     assert not any(unicodedata.category(c)=="Cc" and c not in "\n\t\r" for c in s),path
 layout=json.loads((root/"plugins/Infinity/layout.json").read_text())
 # The Sound control is intentionally replaced by the standalone browser.
-verify([(str(c["i"]),c["x"],c["y"],c["w"],c["h"]) for c in layout["controls"] if c["i"]!=0],1280,628)
+assert len(layout["pages"])==6
+assert sorted(c["i"] for c in layout["controls"])==list(range(39))
+for page in layout["pages"]:
+    verify([(str(c["i"]),c["x"],c["y"],c["w"],c["h"]) for c in page["controls"]],1280,628)
 s=(root/"macos/MultisampleStudio.h").read_text()
 s=s[s.index("-(instancetype)initWithFrame:(NSRect)frame{"):s.index("-(NSMutableDictionary*)studioLayerRecord{return")]
 rects=[]

@@ -90,3 +90,6 @@ Cinematic Horizons candidate revised: distinct harmonic families, corrected reve
 
 ## v0.9.12 Cinematic Horizons Master Edition QA
 Two-pass native render calibration using 100ms active-window RMS, bounded per-expansion G trim, new immutable UUID. Factory gain path unchanged. State restoration preserves saved collection UUID when absent and synchronizes navigation on load. Master QC tests all 100 presets and state roundtrips, 60s 24/32/64-voice host scenarios, new WAVs and before/after reports. Separate QA ZIP with offline installer and product draft, unsigned DEMO only. Actual MPC hardware, human listening and production keys remain pending.
+
+## Black Gold page separation (UI-only)
+Six actual MPC pages MAIN, MASTER FILTER, DELAY, REVERB, AMP MODIFIER, LIBRARIES. MAIN keeps Filter Modifier, Sound and Volume, all other controls isolated on their own pages. Shared large 64/104px knobs, dedicated original Factory 1 artwork, enlarged Mac browser, Q-Link mappings per page. No audio code or parameter ID change. Mac test library page has collection selection and audition; MPC native manager preserves its existing four controls. Static geometry tests per page and preview artifacts; verify physical display manually. Production workflow stays pinned to the previous validated commit pending ergonomic approval.

@@ -147,7 +147,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Liberty-Infinity-Black-Gold-Browser-Pro-Preview
-          path: plugins/Infinity/assets/black-gold-preview.png
+          path: |
+            plugins/Infinity/assets/*-preview.png
+            plugins/Infinity/assets/factory-1.png
+            plugins/Infinity/assets/libraries.png
           if-no-files-found: error
   mac-test:
     runs-on: macos-15
