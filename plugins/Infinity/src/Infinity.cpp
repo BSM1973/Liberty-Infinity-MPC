@@ -134,7 +134,7 @@ public:
     bool formatValue(int index,float plain,std::string& out)override{
         if(index==P_library){int lib=int(plain);if(lib==0)out="Factory 1 (100)";else if(auto* ex=bank.expansion(lib-1))out=ex->name+" ("+std::to_string(browserCount(lib,0))+")";else out="Library "+std::to_string(lib)+" (vide)";return true;}
         if(index==P_browse){int p=browserPatch(getInt(P_library),getInt(P_category),int(plain));out=p<0?"Aucun resultat":p<factoryCount?factory[p].name:bank.expansionPreset(p)->name;return true;}
-        if(index==P_preview){out=plain>0.5f?"Stop":"Ecouter";return true;}
+        if(index==P_preview){out=plain>0.5f?"ON":"OFF";return true;}
         if(index==Sound&&int(plain)>=factoryCount){int p=int(plain);auto* ep=bank.expansionPreset(p);out=blockedPatch.load()==p?"Library incompatible":ep?ep->name:hd::ExpansionCatalog::label(p)+" (vide)";return true;}return false;
     }
     void saveExtraState(std::vector<uint8_t>& out)override{
@@ -159,7 +159,7 @@ public:
     bool usingPackedBank() const {return bank.good();}
     int loadedZones() const {return bank.good()?patches*zones*hd::velocities:0;}
     void prepare(double sampleRate,int) override { sr=std::clamp(sampleRate,8000.0,192000.0); for(auto& b:lines)b.assign(size_t(sr*2)+4,0); reset(); }
-    void reset() override { set(P_mainPick,0);navLibrary=getInt(P_library);navCategory=getInt(P_category);navRow=getInt(P_browse);previewFrames=0;previewPending=false;set(P_preview,0);pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; roundRobin={}; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
+    void reset() override { set(P_mainPick,0);navLibrary=getInt(P_library);navCategory=getInt(P_category);navRow=getInt(P_browse);previewFrames=0;previewedPatch=-1;set(P_preview,0);pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; roundRobin={}; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
     uint32_t streamUnderruns()const{return bank.streamUnderruns();}
     uint32_t streamQueueDrops()const{return bank.streamQueueDrops();}
     uint32_t streamIOErrors()const{return bank.streamIOErrors();}
@@ -175,33 +175,39 @@ public:
                 const int cat=mainBrowserPages[view].category;int index=1;
                 for(int i=0;i<p;++i)if(!cat||factory[i].kind+1==cat)++index;
                 set(P_library,0);set(P_category,float(cat));set(P_browse,float(index));
-                navLibrary=0;navCategory=cat;navRow=index;set(P_preview,0);set(Sound,float(p));
+                navLibrary=0;navCategory=cat;navRow=index;set(Sound,float(p));
             }
         }
         const int lib=getInt(P_library),category=getInt(P_category);
         int row=getInt(P_browse);
-        if(syncBrowser.exchange(false,std::memory_order_acq_rel)){navLibrary=lib;navCategory=category;navRow=row;set(P_preview,0);}
+        if(syncBrowser.exchange(false,std::memory_order_acq_rel)){navLibrary=lib;navCategory=category;navRow=row;releasePreview();previewFrames=0;previewedPatch=-1;set(P_preview,0);}
         if(lib!=navLibrary||category!=navCategory){row=1;set(P_browse,1);}
+        bool invalidBrowserSelection=false;
         if(lib!=navLibrary||category!=navCategory||row!=navRow){
             navLibrary=lib;navCategory=category;navRow=row;
             const int p=browserPatch(lib,category,row);
-            if(p>=0)set(Sound,float(p));
-            set(P_preview,0);
+            releasePreview();previewFrames=0;
+            if(p>=0){set(Sound,float(p));previewedPatch=-1;}
+            else {invalidBrowserSelection=true;previewedPatch=getInt(Sound);}
         }
         const int desired=std::clamp(getInt(Sound),0,hd::totalPatches-1);
         if(blockedPatch.load()==desired||!bank.available(desired)){
-            voices={};pending={};previewFrames=0;previewPending=false;set(P_preview,0);activeVoices.store(0,std::memory_order_relaxed);switchGain=0;for(int ch=0;ch<ctx.numOutputs;++ch)std::fill_n(ctx.outputs[ch],ctx.numFrames,0.f);return;
+            voices={};pending={};previewFrames=0;previewedPatch=-1;activeVoices.store(0,std::memory_order_relaxed);switchGain=0;for(int ch=0;ch<ctx.numOutputs;++ch)std::fill_n(ctx.outputs[ch],ctx.numFrames,0.f);return;
         }
-        if(desired!=requested){releasePreview();requested=desired;pending={};previewFrames=0;previewPending=false;}
+        if(desired!=requested){releasePreview();requested=desired;pending={};previewFrames=0;previewedPatch=-1;}
         bank.requestPatch(desired);
         if(bank.loadedPatch()!=desired && switchGain<=0.f && bank.select(desired)){voices={};roundRobin={};activeVoices.store(0,std::memory_order_relaxed);}
         const bool waiting=bank.loadedPatch()!=desired;
-        if(!getBool(P_preview)){if(previewFrames||previewPending)releasePreview();previewFrames=0;previewPending=false;}
-        else if(!previewFrames&&!previewPending)previewPending=true;
-        if(previewPending&&!waiting){
-            if(browserPatch(lib,category,row)==desired){startVoice(16,60,100,desired);previewFrames=std::max(1,int(sr*.85));}
-            else set(P_preview,0);
-            previewPending=false;
+        // Persistent audition mode: one finite note per selected/loaded patch.
+        // Ending the note never turns off the switch. No replay on idle blocks.
+        if(!getBool(P_preview)){
+            if(previewFrames>0||previewedPatch>=0)releasePreview();
+            previewFrames=0;previewedPatch=-1;
+        }else if(invalidBrowserSelection){
+            previewedPatch=desired;
+        }else if(!waiting&&previewedPatch!=desired){
+            releasePreview();startVoice(16,60,100,desired);
+            previewFrames=std::max(1,int(sr*.85));previewedPatch=desired;
         }
         if(!waiting)for(int ch=0;ch<16;++ch)for(int note=0;note<128;++note)if(pending[ch][note]){
             startVoice(ch,note,pending[ch][note],desired);pending[ch][note]=0;
@@ -231,7 +237,7 @@ public:
         int event=0;
         for(int i=0;i<ctx.numFrames;++i) {
             while(event<ctx.numMidiEvents && ctx.midi[event].sampleOffset<=i) midi(ctx.midi[event++],desired,waiting);
-            if(previewFrames>0&&--previewFrames==0){releasePreview();set(P_preview,0);}
+            if(previewFrames>0&&--previewFrames==0)releasePreview();
             float l=0,r=0;
             for(auto& v:voices) {
                 if(!v.stage) continue;
@@ -338,7 +344,7 @@ private:
     std::atomic<int> activeVoices{0},blockedPatch{-1};
     std::array<uint8_t,36> savedExpansionID{}; // state callbacks only; render reads blockedPatch
     std::atomic<bool> syncBrowser{false};
-    int navLibrary=0,navCategory=0,navRow=1,previewFrames=0;bool previewPending=false;
+    int navLibrary=0,navCategory=0,navRow=1,previewFrames=0,previewedPatch=-1;
     void releasePreview(){for(auto& v:voices)if(v.stage&&v.channel==16){v.held=false;v.stage=4;}}
     static mpc::PluginInfo info(){
         mpc::PluginInfo p; p.name="Liberty Infinity";p.vendor="Liberty Music Software";

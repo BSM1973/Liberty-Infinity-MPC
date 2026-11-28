@@ -25,7 +25,7 @@ static bool favoritesOnly=false;
 static NSMutableSet<NSString*> *favorites;
 static NSMutableDictionary<NSString*,NSDictionary*> *userPresets;
 static NSString *query=@"",*userName=nil;
-static std::atomic<int> auditionCommand{0},auditionPlaying{0},midiFlash{0};
+static std::atomic<int> midiFlash{0};
 static const char* categories[]={"All","Bass","Keys","Pads","Plucks","Leads","Pianos","Strings","Brass","Arpeggios","Bells & Mallets","Atmospheres","Synth & FX"};
 static NSString* patchName(int i){return [NSString stringWithUTF8String:factory[i].name];}
 static const char* styles[]={"All styles","Electronic","Cinematic","Ambient","Pop / Keys","Retro"};
@@ -88,7 +88,7 @@ static void browserButton(NSString *title, NSRect r, bool active=false){
 }
 #include "MultisampleStudio.h"
 static NSRect bounds(NSDictionary *c){return NSMakeRect([c[@"x"] doubleValue],[c[@"y"] doubleValue],[c[@"w"] doubleValue],[c[@"h"] doubleValue]);}
-static void choose(int p){if(p<0||p>=factoryCount)return;pcmSelection=-1;auditionCommand.store(-1);current=p;userName=nil;synth->setProgram(p);}
+static void choose(int p){if(p<0||p>=factoryCount)return;pcmSelection=-1;current=p;userName=nil;synth->setProgram(p);}
 static void chooseRow(int i){
     if(!activeLibrary()){choose(i);selectedLibraryRow=-1;return;}
     NSDictionary *record=libraryPreset(i);int f=factoryIndex(record);if(f<0)return;
@@ -153,7 +153,7 @@ static const char *keyMap="awsedftgyhujkolp";
     text([NSString stringWithFormat:@"%d / %d | %d sons",page+1,std::max(1,(visibleCount+pageSize-1)/pageSize),visibleCount],NSMakeRect(550,512,228,24),11,ink(),true);
     browserButton(@"Page +",NSMakeRect(788,508,110,28));
     browserButton(@"Son >",NSMakeRect(908,508,110,28));
-    browserButton(auditionPlaying.load()?@"Stop":@"Écouter",NSMakeRect(310,542,170,30),auditionPlaying.load()!=0);
+    browserButton(synth->getBool(P_preview)?@"Préécoute ON":@"Préécoute OFF",NSMakeRect(310,542,170,30),synth->getBool(P_preview));
     browserButton(@"Enregistrer",NSMakeRect(490,542,170,30));
     browserButton(@"Mes presets",NSMakeRect(670,542,170,30));
     browserButton(activeLibrary()?@"Factory 1":([favorites containsObject:patchName(current)]?@"Favori : oui":@"Favori : non"),NSMakeRect(850,542,168,30),!activeLibrary()&&[favorites containsObject:patchName(current)]);
@@ -181,7 +181,7 @@ static const char *keyMap="awsedftgyhujkolp";
             text(@"Collection installée",NSMakeRect(x+8,292,216,22),12,gold(),true);
         }
         browserButton(@"Choisir une collection / un son",NSMakeRect(32,343,600,62),true);
-        browserButton(auditionPlaying.load()?@"Stop":@"Écouter",NSMakeRect(648,343,600,62),auditionPlaying.load()!=0);
+        browserButton(synth->getBool(P_preview)?@"Préécoute ON":@"Préécoute OFF",NSMakeRect(648,343,600,62),synth->getBool(P_preview));
         text([NSString stringWithUTF8String:synth->displayText(0).c_str()],NSMakeRect(32,475,1216,60),27,ink(),true);
     }
     [[NSColor colorWithWhite:.13 alpha:1]setFill];NSRectFill(NSMakeRect(0,628,1280,92));
@@ -217,7 +217,7 @@ static const char *keyMap="awsedftgyhujkolp";
         }
         [NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
     }
-    if(uiPage==5&&NSPointInRect(p,NSMakeRect(648,343,600,62))){if(synth->loadedPatch()==(pcmSelection>=0?pcmSelection:current))auditionCommand.store(auditionPlaying.load()?-1:1);return;}
+    if(uiPage==5&&NSPointInRect(p,NSMakeRect(648,343,600,62))){synth->set(P_preview,!synth->getBool(P_preview));return;}
     if(uiPage==0){
     if(p.x>=32&&p.x<294&&p.y>=202&&p.y<232){
         NSMenu *menu=[[NSMenu alloc]initWithTitle:@"Style"];for(int j=0;j<6;++j){NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:[NSString stringWithUTF8String:styles[j]] action:@selector(selectStyle:) keyEquivalent:@""];item.target=self;item.tag=j;item.state=j==style?NSControlStateValueOn:NSControlStateValueOff;[menu addItem:item];}[NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
@@ -231,7 +231,7 @@ static const char *keyMap="awsedftgyhujkolp";
         else if(p.x>=908)[self stepPreset:1];return;
     }
     if(p.y>=542&&p.y<572&&p.x>=310&&p.x<1018){
-        if(p.x<480&&synth->loadedPatch()==(pcmSelection>=0?pcmSelection:current))auditionCommand.store(auditionPlaying.load()?-1:1);
+        if(p.x<480)synth->set(P_preview,!synth->getBool(P_preview));
         else if(p.x>=490&&p.x<660&&pcmSelection<0)[self saveUserPreset];
         else if(p.x>=670&&p.x<840)[self showUserPresets:e];
         else if(p.x>=850){if(activeLibrary()){collection=-1;selectedLibraryRow=-1;category=style=0;query=@"";search.stringValue=@"";favoritesOnly=false;rebuild();chooseRow(current);}else [self toggleFavorite:current];}return;
@@ -253,7 +253,7 @@ static const char *keyMap="awsedftgyhujkolp";
 }
 -(void)controlTextDidChange:(NSNotification*)n{if(n.object==search){query=[search.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];rebuild();[self setNeedsDisplay:YES];}}
 -(void)selectStyle:(NSMenuItem*)item{style=int(item.tag);rebuild();[self setNeedsDisplay:YES];}
--(void)selectPCM:(NSMenuItem*)item{pcmSelection=int(item.tag);auditionCommand.store(-1);synth->setProgram(pcmSelection);[self setNeedsDisplay:YES];}
+-(void)selectPCM:(NSMenuItem*)item{pcmSelection=int(item.tag);synth->setProgram(pcmSelection);[self setNeedsDisplay:YES];}
 -(void)selectCollection:(NSMenuItem*)item{collection=item.tag;selectedLibraryRow=-1;category=style=0;query=@"";search.stringValue=@"";favoritesOnly=false;rebuild();if(visibleCount)chooseRow(visible[0]);[self setNeedsDisplay:YES];}
 -(void)stepPreset:(int)delta{if(!visibleCount)return;int at=-1;for(int j=0;j<visibleCount;++j)if(visible[j]==(activeLibrary()?selectedLibraryRow:current)){at=j;break;}at=at<0?(delta>0?0:visibleCount-1):(at+delta+visibleCount)%visibleCount;chooseRow(visible[at]);page=at/pageSize;}
 -(void)toggleFavorite:(int)i{NSString *name=patchName(i);if([favorites containsObject:name])[favorites removeObject:name];else [favorites addObject:name];persist();int old=page;rebuild();page=std::min(old,std::max(0,(visibleCount-1)/pageSize));}
@@ -327,15 +327,6 @@ static const char *keyMap="awsedftgyhujkolp";
         int ped=externalPedal.load(),bend=externalBend.load();if(ped!=lastPedal){lastPedal=ped;events[n++]=mpc::MidiEvent::cc(0,64,ped);}if(bend!=lastBend){lastBend=bend;mpc::MidiEvent e;e.size=3;e.data[0]=0xE0;e.data[1]=bend&127;e.data[2]=(bend>>7)&127;events[n++]=e;}
         for(int i=0;i<128;++i){int v=std::max(notes[i].load(std::memory_order_relaxed),external[i].load(std::memory_order_relaxed));if(bool(v)!=played[i]){played[i]=bool(v);events[n++]=v?mpc::MidiEvent::noteOn(0,i,v):mpc::MidiEvent::noteOff(0,i);}}
         if(n)midiFlash.store(int(sr*.15));else midiFlash.store(std::max(0,midiFlash.load()-int(count)));
-        static int previewFrames=0;
-        int command=auditionCommand.exchange(0);
-        if(command||previewFrames>0){
-            if(previewFrames>0&&(command||previewFrames<=int(count))){
-                events[n++]=mpc::MidiEvent::noteOff(15,60);previewFrames=0;auditionPlaying.store(0);
-            }
-            if(command==1){events[n++]=mpc::MidiEvent::noteOn(15,60,95);previewFrames=int(sr*.85);auditionPlaying.store(1);}
-            else if(previewFrames>0)previewFrames-=int(count);
-        }
         float *out[]={static_cast<float*>(abl->mBuffers[0].mData),static_cast<float*>(abl->mBuffers[1].mData)};
         mpc::ProcessContext ctx;ctx.outputs=out;ctx.numOutputs=2;ctx.numFrames=count;ctx.midi=events;ctx.numMidiEvents=n;ctx.sampleRate=sr;
         synth->process(ctx);float l=0,r=0;for(unsigned i=0;i<count;++i){l=std::max(l,std::abs(out[0][i]));r=std::max(r,std::abs(out[1][i]));}

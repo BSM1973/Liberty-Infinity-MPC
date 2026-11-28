@@ -41,46 +41,13 @@ for c in L["controls"]:
     children[i]=g.entry(name,name,o(("version",1),("handleName","Data")),rect(x,y,w,h),"Yes","Hide","Always",remap=[("Data",p.handle)])
 for n,typ,data in [("knob overlay","KnobOverlay",g.knob_overlay_data()),("menu overlay","MenuOverlay",g.menu_overlay_data())]:
     defs.append(o(("key",n),("value",g.overlay_component(typ,data,"ff101014"))))
-# MAIN: native clickable buttons, static actual Factory names, vertical page scroller.
-# SDK IndexedEnabling is used for page visibility, as in its visibleWhen generator.
-V=json.loads((P/"main-browser.json").read_text(encoding="utf8"))
-assert len(V)==len(by[43].choices)
-assert [v["label"] for v in V]==list(by[43].choices)
-assert len(by[44].choices)==9
-mainchildren=[]
-def bind(name,typ,parts,xy,param,invalidating=None,actions=None):
-    defs.append(o(("key",name),("value",g.component_definition(actions or [],parts,"00000000"))))
-    return g.entry(name,typ,o(("version",1),("handleName","Data")),xy,"Yes","Hide","Always",remap=[("Data",param.handle)],invalidating=invalidating)
-# One button per category jumps to its first page; no SOUND overlay.
-for cat in range(13):
-    first=next(i for i,v in enumerate(V) if v["category"]==cat)
-    title=V[first]["label"].rsplit("  ",1)[0]
-    name="mainCategory"+str(cat);y=164+cat*31
-    parts=[g.entry("button","Button",g.button_data("browser-category-on.png","browser-category-off.png",first,len(V)),rect(0,0,246,29),"No","Show","Always"),
-           label("name",title,rect(6,1,234,27),size=17)]
-    mainchildren.append(bind(name,name,parts,rect(32,y,246,29),by[43]))
-# Header uses a real page choice and the selected Sound; both are readouts, no overlay.
-mainchildren.append(g.entry("page","Label",g.label_data("Value","ffd5b06b",21,"left"),rect(304,132,410,30),"No","Show","Always",remap=[("Data",by[43].handle)]))
-mainchildren.append(g.entry("selected","Label",g.label_data("Value","fff9f9f9",22,"right"),rect(714,132,256,30),"No","Show","Always",remap=[("Data",by[0].handle)]))
-for page,v in enumerate(V):
-    invalidate=["IndexedEnabling/%d/%d/%s"%(page,len(V),by[43].handle)]
-    for row,preset in enumerate(v["rows"]):
-        y=170+row*51;name="mainRow%d_%d"%(page,row)
-        parts=[g.entry("button","Button",g.button_data("browser-row-on.png","browser-row-off.png",row+1,9),rect(0,0,666,46),"No","Show","Always"),
-               label("index","%03d"%(preset["index"]+1),rect(8,4,70,38),colour="ffd5b06b",size=19),
-               g.entry("preset","Label",g.label_data("Text","fff9f9f9",23,"left",preset["name"]),rect(90,4,560,38),"No","Show","Always")]
-        mainchildren.append(bind(name,name,parts,rect(304,y,666,46),by[44],invalidate))
-scroll=[g.entry("scroll","Knob",g.knob_filmstrip_data("browser-scroll.png",len(V),"Vertical"),rect(0,0,38,403),"No","Show","Always")]
-mainchildren.append(bind("mainScroll","mainScroll",scroll,rect(980,170,38,403),by[43],actions=[g.action("Mouse Down","Q-Link","Data","")]))
-mainchildren.append(children[7])
-
-# Six actual pages, each with only its own parameter controls.
-groups=[(p["name"],p["ids"] if p["name"]!="MAIN" else [43,44,7]) for p in L["pages"][:-1]]
+# Four existing effect pages. MAIN is inserted after the shared library content is built.
+groups=[("MAIN",[39,40,41,42,0,7])]+[(p["name"],p["ids"]) for p in L["pages"][1:-1]]
 tabs=[];maps=[]
-for ti,page in enumerate(L["pages"][:-1]):
-    indices=page["ids"] if ti else [43,44,7]
+for ti,page in enumerate(L["pages"][1:-1],1):
+    indices=page["ids"]
     tabs.append(o(("version",1),("tabName",page["name"]),("fnKeyIndex",ti),("fnKeySubIndex",0),
-      ("componentDefinition",g.component_definition([], mainchildren if ti==0 else [children[c["i"]] for c in page["controls"]],"ff101014",bg_image=page["asset"]+".png")),("qlinkBoundsData",[])))
+      ("componentDefinition",g.component_definition([], [children[c["i"]] for c in page["controls"]],"ff101014",bg_image=page["asset"]+".png")),("qlinkBoundsData",[])))
     maps.append(o(("Tab",ti+1),("SubTab",1),("Bank Direction","Column"),
       ("Q-Links",g.Obj(("Q-Link %d"%(j+1),indices[j] if j<len(indices) else -1) for j in range(16)))))
 # Native Library Manager: controls backed by actual DSP parameter handles.
@@ -101,7 +68,11 @@ name="librarySound"
 parts=[label("name","SON ACTUEL",rect(0,0,1216,24),size=16),g.entry("value","Label",g.label_data("Value","fff9f9f9",28,"horizontallyCentred verticallyCentred"),rect(0,28,1216,46),"No","Show","Always")]
 defs.append(o(("key",name),("value",g.component_definition(g.control_actions("menu overlay"),parts,"00000000"))))
 libchildren.append(g.entry(name,name,o(("version",1),("handleName","Data")),rect(32,470,1216,76),"Yes","Hide","Always",remap=[("Data",by[0].handle)]))
-tabs.append(o(("version",1),("tabName","LIBRARIES"),("fnKeyIndex",5),("fnKeySubIndex",0),("componentDefinition",g.component_definition([],libchildren,"ff101014",bg_image="libraries.png")),("qlinkBoundsData",[])))
+sharedLibraryPage=g.component_definition([],libchildren,"ff101014",bg_image="libraries.png")
+tabs.insert(0,o(("version",1),("tabName","MAIN"),("fnKeyIndex",0),("fnKeySubIndex",0),("componentDefinition",sharedLibraryPage),("qlinkBoundsData",[])))
+maps.insert(0,o(("Tab",1),("SubTab",1),("Bank Direction","Column"),
+    ("Q-Links",g.Obj(("Q-Link %d"%(j+1),groups[0][1][j] if j<len(groups[0][1]) else -1) for j in range(16)))))
+tabs.append(o(("version",1),("tabName","LIBRARIES"),("fnKeyIndex",5),("fnKeySubIndex",0),("componentDefinition",sharedLibraryPage),("qlinkBoundsData",[])))
 maps.append(o(("Tab",6),("SubTab",1),("Bank Direction","Column"),("Q-Links",g.Obj(("Q-Link %d"%(j+1),[39,40,41,42,0][j] if j<5 else -1) for j in range(16)))))
 repl=[o(("key",p.handle),("value",list(p.choices))) for p in params if p.is_discrete]
 tui=o(("pageData",o(("version",1),("componentDefinitions",o(("version",2),("importFiles",[]),("localComponentDefinitions",defs))),
@@ -110,4 +81,4 @@ ql=o(("version",4),("info",o(("version",1),("type","CompleteDescription"))),
   ("Screen Mode Q-Links",o(("version",4),("map",maps))),
   ("Program Mode Q-Links",g.Obj(("Q-Link %d"%(i+1),groups[0][1][i] if i<len(groups[0][1]) else -1) for i in range(16))))
 for n,v in [("TUI.json",tui),("Q-Links.json",ql)]: (out/n).write_text(g.dump_json(v)+"\n",encoding="utf8")
-print("Black Gold skin: 45 bound parameters, six Q-Link banks")
+print("Black Gold skin: Shared MAIN/LIBRARIES page, six Q-Link banks")

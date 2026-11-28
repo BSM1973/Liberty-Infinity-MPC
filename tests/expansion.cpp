@@ -12,16 +12,38 @@ int main(){
     const std::string id="12345678-1234-1234-1234-123456789abc";
     {std::ofstream f(dir/"Library.pcm",std::ios::binary);f.write("LINFEX01",8);for(int i=0;i<44100;++i){
         int x=int(3000000*std::sin(i*6.28318530718*261.6256/44100));for(int ch=0;ch<2;++ch)for(int k=0;k<3;++k)f.put(char((uint32_t(ch?x/2:x)>>(8*k))&255));}}
-    {std::ofstream f(dir/"Library.map");f<<"LINFEXP1\nI "<<id<<"\nN \"Test Collection\"\nP 0 \"Test Stereo\"\nC 0 6\nL 0 0 1 0 0 0\n";for(int z=0;z<5;++z)for(int v=0;v<4;++v)f<<"X 0 0 "<<z<<" "<<v<<" 8 44100 2 44100 60 0 44100 0\n";}
+    {std::ofstream f(dir/"Library.map");f<<"LINFEXP1\nI "<<id<<"\nN \"Test Collection\"\nP 0 \"Test Stereo\"\nC 0 6\nL 0 0 1 0 0 0\n";for(int z=0;z<5;++z)for(int v=0;v<4;++v)f<<"X 0 0 "<<z<<" "<<v<<" 8 44100 2 44100 60 0 44100 0\n";
+     f<<"P 2 \"Test Stereo Second\"\nC 2 6\nL 2 0 1 0 0 0\n";for(int z=0;z<5;++z)for(int v=0;v<4;++v)f<<"X 2 0 "<<z<<" "<<v<<" 8 44100 2 44100 60 0 44100 0\n";}
     {std::ofstream f(dir/"License.txt");f<<"LINFLIC1 "<<id<<" DEMO\n";}
     Infinity s;if(!s.usingPackedBank()||!s.expansionPreset(100)||s.expansionPreset(101)||s.numPrograms()!=500)return 2;
-    if(s.browserCount(0,0)!=100||s.browserCount(1,6)!=1||s.browserCount(1,2)!=0||s.browserPatch(1,6,1)!=100)return 10;
+    if(s.browserCount(0,0)!=100||s.browserCount(1,6)!=2||s.browserCount(1,2)!=0||s.browserPatch(1,6,1)!=100)return 10;
     s.prepare(48000,128);s.set(P_library,1);s.set(P_category,6);s.set(P_ampon,0);s.set(P_filteron,0);
     float l[128],r[128];float* out[]={l,r};mpc::ProcessContext ctx;ctx.outputs=out;ctx.numOutputs=2;ctx.numFrames=128;ctx.sampleRate=48000;
     for(int i=0;i<1500&&s.loadedPatch()!=100;++i){s.process(ctx);std::this_thread::sleep_for(std::chrono::milliseconds(2));}if(s.loadedPatch()!=100)return 3;
     if(s.getInt(Sound)!=100)return 11;s.set(P_preview,1);double preview=0;
     for(int i=0;i<30;++i){s.process(ctx);for(float x:l)preview+=x*x;}if(preview<1e-5)return 12;
-    s.set(P_preview,0);s.process(ctx);
+    // Audition remains armed after the 0.85s note, without looping the note.
+    for(int i=0;i<900;++i)s.process(ctx);
+    if(!s.getBool(P_preview)||s.activeVoiceCount()!=0)return 30;
+    s.set(P_browse,2);
+    for(int i=0;i<1500&&s.loadedPatch()!=102;++i){s.process(ctx);std::this_thread::sleep_for(std::chrono::milliseconds(2));}
+    if(s.loadedPatch()!=102||s.getInt(Sound)!=102||!s.getBool(P_preview))return 31;
+    double second=0;for(int i=0;i<30;++i){s.process(ctx);for(float x:l)second+=x*x;}
+    if(second<1e-5)return 32;
+    // Rapid selection changes, then disable before/after load, no forced reactivation.
+    s.set(P_browse,1);s.process(ctx);s.set(P_browse,2);s.process(ctx);s.set(P_browse,1);s.process(ctx);
+    if(!s.getBool(P_preview))return 33;
+    for(int i=0;i<1500&&s.loadedPatch()!=100;++i){s.process(ctx);std::this_thread::sleep_for(std::chrono::milliseconds(2));}
+    if(s.loadedPatch()!=100||!s.getBool(P_preview))return 34;
+    s.set(P_preview,0);for(int i=0;i<900;++i)s.process(ctx);
+    if(s.getBool(P_preview)||s.activeVoiceCount()!=0)return 35;
+    s.set(P_browse,2);
+    for(int i=0;i<1500&&s.loadedPatch()!=102;++i){s.process(ctx);std::this_thread::sleep_for(std::chrono::milliseconds(2));}
+    s.process(ctx);if(s.activeVoiceCount()!=0||s.getBool(P_preview))return 36;
+    s.set(P_browse,1);
+    for(int i=0;i<1500&&s.loadedPatch()!=100;++i){s.process(ctx);std::this_thread::sleep_for(std::chrono::milliseconds(2));}
+    if(s.loadedPatch()!=100)return 37;
+    std::cout<<"PASS persistent preview mode, automatic next preset, no looping, rapid changes, disabled stays silent\n";
     auto on=mpc::MidiEvent::noteOn(0,60,100);ctx.midi=&on;ctx.numMidiEvents=1;double energy=0;
     for(int i=0;i<30;++i){s.process(ctx);ctx.numMidiEvents=0;for(float x:l)energy+=x*x;}if(energy<1e-5)return 4;
     auto state=s.internalSaveState();if(!s.internalLoadState(state.data(),state.size())||s.getInt(Sound)!=100)return 5;
