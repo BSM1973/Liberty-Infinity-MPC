@@ -108,7 +108,7 @@ static const char *keyMap="awsedftgyhujkolp";
     (void)dirty;
     [pagePanels[uiPage] drawInRect:NSMakeRect(0,0,1280,628) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
     [[NSColor colorWithWhite:.09 alpha:1]setFill];NSRectFill(NSMakeRect(0,720,1280,48));
-    for(int j=0;j<6;++j){browserButton(uiPages[j][@"name"],NSMakeRect(16+j*208,724,200,36),uiPage==j);}
+    for(int j=0;j<5;++j){browserButton(uiPages[j][@"name"],NSMakeRect(16+j*250,724,242,36),uiPage==j);}
     for(NSDictionary *c in uiPages[uiPage][@"controls"]){
         int i=[c[@"i"] intValue];NSRect r=bounds(c);if(i==0)continue;
         NSString *kind=c[@"kind"];NSDictionary *face=c[@"face"];
@@ -170,19 +170,6 @@ static const char *keyMap="awsedftgyhujkolp";
             [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(1200+c*20,391-j*7,12,5) xRadius:2 yRadius:2] fill];
         }
     }
-    }else if(uiPage==5){
-        // Use the same actual collection selection menu; no fictitious install button.
-        for(int slot=0;slot<4;++slot)if(auto* ex=synth->expansion(slot)){
-            CGFloat x=32+246*(slot+1);
-            NSImage *cover=expansionCovers[@(slot)];
-            if(cover)[cover drawInRect:NSMakeRect(x+41,106,150,150) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
-            [[NSColor colorWithWhite:.10 alpha:1]setFill];NSRectFill(NSMakeRect(x+8,258,216,58));
-            text([NSString stringWithUTF8String:ex->name.c_str()],NSMakeRect(x+8,264,216,26),14,ink(),true);
-            text(@"Collection installée",NSMakeRect(x+8,292,216,22),12,gold(),true);
-        }
-        browserButton(@"Choisir une collection / un son",NSMakeRect(32,343,600,62),true);
-        browserButton(synth->getBool(P_preview)?@"Préécoute ON":@"Préécoute OFF",NSMakeRect(648,343,600,62),synth->getBool(P_preview));
-        text([NSString stringWithUTF8String:synth->displayText(0).c_str()],NSMakeRect(32,475,1216,60),27,ink(),true);
     }
     [[NSColor colorWithWhite:.13 alpha:1]setFill];NSRectFill(NSMakeRect(0,628,1280,92));
     text(@"CLAVIER DE TEST  |  A W S E D F T G Y H U J K O L P",NSMakeRect(16,630,1248,20),13,NSColor.whiteColor);
@@ -196,8 +183,8 @@ static const char *keyMap="awsedftgyhujkolp";
 -(void)mouseDown:(NSEvent*)e{
     NSPoint p=[self convertPoint:e.locationInWindow fromView:nil];[self.window makeFirstResponder:self];
     if(p.y>=653&&p.y<715&&p.x>=16&&p.x<1264){mouseNote=60+int((p.x-16)/78);notes[mouseNote].store(100);return;}
-    if(p.y>=724&&p.y<760){for(int j=0;j<6;++j)if(NSPointInRect(p,NSMakeRect(16+j*208,724,200,36))){uiPage=j;drag=-1;search.hidden=uiPage!=0;[self setNeedsDisplay:YES];return;}}
-    if((uiPage==0&&NSPointInRect(p,NSMakeRect(310,151,708,36)))||(uiPage==5&&NSPointInRect(p,NSMakeRect(32,343,600,62)))){
+    if(p.y>=724&&p.y<760){for(int j=0;j<5;++j)if(NSPointInRect(p,NSMakeRect(16+j*250,724,242,36))){uiPage=j;drag=-1;search.hidden=uiPage!=0;[self setNeedsDisplay:YES];return;}}
+    if(uiPage==0&&NSPointInRect(p,NSMakeRect(310,151,708,36))){
         NSMenu *menu=[[NSMenu alloc]initWithTitle:@"Collections"];
         NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:@"Factory 1 (100 presets)" action:@selector(selectCollection:) keyEquivalent:@""];item.target=self;item.tag=-1;item.state=collection==-1?NSControlStateValueOn:NSControlStateValueOff;[menu addItem:item];
         for(NSInteger j=0;j<(NSInteger)libraries.count;++j){
@@ -217,7 +204,6 @@ static const char *keyMap="awsedftgyhujkolp";
         }
         [NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
     }
-    if(uiPage==5&&NSPointInRect(p,NSMakeRect(648,343,600,62))){synth->set(P_preview,!synth->getBool(P_preview));return;}
     if(uiPage==0){
     if(p.x>=32&&p.x<294&&p.y>=202&&p.y<232){
         NSMenu *menu=[[NSMenu alloc]initWithTitle:@"Style"];for(int j=0;j<6;++j){NSMenuItem *item=[[NSMenuItem alloc]initWithTitle:[NSString stringWithUTF8String:styles[j]] action:@selector(selectStyle:) keyEquivalent:@""];item.target=self;item.tag=j;item.state=j==style?NSControlStateValueOn:NSControlStateValueOff;[menu addItem:item];}[NSMenu popUpContextMenu:menu withEvent:e forView:self];return;
@@ -298,7 +284,7 @@ static const char *keyMap="awsedftgyhujkolp";
     setenv("MPC_PLUGIN_FOLDER",res.fileSystemRepresentation,1);
     NSData *data=[NSData dataWithContentsOfFile:[res stringByAppendingPathComponent:@"layout.json"]];
     NSDictionary *layout=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-    controls=layout[@"controls"];uiPages=layout[@"pages"];
+    controls=layout[@"controls"];uiPages=[layout[@"pages"] subarrayWithRange:NSMakeRange(0,5)];
     NSMutableArray<NSImage*> *panels=[NSMutableArray new];for(NSDictionary *pg in uiPages){NSImage *img=[[NSImage alloc]initWithContentsOfFile:[res stringByAppendingPathComponent:[pg[@"asset"] stringByAppendingString:@".png"]]];if(img)[panels addObject:img];}
     pagePanels=[panels copy];factoryArt=[[NSImage alloc]initWithContentsOfFile:[res stringByAppendingPathComponent:@"factory-1.png"]];
     NSMutableDictionary<NSString*,NSImage*> *loaded=[NSMutableDictionary new];
@@ -307,7 +293,7 @@ static const char *keyMap="awsedftgyhujkolp";
         if(img)loaded[name]=img;
     }
     faces=[loaded copy];
-    if(!controls||uiPages.count!=6||pagePanels.count!=6||!factoryArt||faces.count!=7){NSLog(@"Missing resources");[NSApp terminate:nil];return;}
+    if(!controls||uiPages.count!=5||pagePanels.count!=5||!factoryArt||faces.count!=7){NSLog(@"Missing resources");[NSApp terminate:nil];return;}
     NSString *support=[libraryDirectory() stringByDeletingLastPathComponent];if(support)setenv("INFINITY_EXPANSION_ROOT",support.fileSystemRepresentation,1);
     synth=std::make_unique<Infinity>();synth->setProgram(0);
     expansionCovers=[NSMutableDictionary new];for(int slot=0;slot<4;++slot)if(auto* ex=synth->expansion(slot)){

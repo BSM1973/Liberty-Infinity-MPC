@@ -72,8 +72,8 @@ sharedLibraryPage=g.component_definition([],libchildren,"ff101014",bg_image="lib
 tabs.insert(0,o(("version",1),("tabName","MAIN"),("fnKeyIndex",0),("fnKeySubIndex",0),("componentDefinition",sharedLibraryPage),("qlinkBoundsData",[])))
 maps.insert(0,o(("Tab",1),("SubTab",1),("Bank Direction","Column"),
     ("Q-Links",g.Obj(("Q-Link %d"%(j+1),groups[0][1][j] if j<len(groups[0][1]) else -1) for j in range(16)))))
-tabs.append(o(("version",1),("tabName","LIBRARIES"),("fnKeyIndex",5),("fnKeySubIndex",0),("componentDefinition",sharedLibraryPage),("qlinkBoundsData",[])))
-maps.append(o(("Tab",6),("SubTab",1),("Bank Direction","Column"),("Q-Links",g.Obj(("Q-Link %d"%(j+1),[39,40,41,42,0][j] if j<5 else -1) for j in range(16)))))
+# MAIN is the sole library page; do not create a sixth tab or Q-Link bank.
+assert len(tabs)==len(maps)==5
 repl=[o(("key",p.handle),("value",list(p.choices))) for p in params if p.is_discrete]
 tui=o(("pageData",o(("version",1),("componentDefinitions",o(("version",2),("importFiles",[]),("localComponentDefinitions",defs))),
   ("replacementStrings",repl),("info",o(("version",1),("type","CompleteDescription"))),("tabs",tabs))))
@@ -81,4 +81,4 @@ ql=o(("version",4),("info",o(("version",1),("type","CompleteDescription"))),
   ("Screen Mode Q-Links",o(("version",4),("map",maps))),
   ("Program Mode Q-Links",g.Obj(("Q-Link %d"%(i+1),groups[0][1][i] if i<len(groups[0][1]) else -1) for i in range(16))))
 for n,v in [("TUI.json",tui),("Q-Links.json",ql)]: (out/n).write_text(g.dump_json(v)+"\n",encoding="utf8")
-print("Black Gold skin: Shared MAIN/LIBRARIES page, six Q-Link banks")
+print("Black Gold skin: MAIN library browser, five tabs and five Q-Link banks")

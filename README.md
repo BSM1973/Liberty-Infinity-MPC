@@ -102,3 +102,6 @@ Replaces the empty SOUND overlay with native buttons, 13 category jumps, eight d
 
 ## MAIN / LIBRARIES and persistent audition
 MPC MAIN shares the exact native LIBRARIES component and libraries.png (including refreshed installed covers). Existing LIBRARIES tab retained, all other pages unchanged. MAIN Q-Link 6 retains volume. The former inline browser parameters remain for project compatibility but have no exposed controls. Preview is an armed mode, plays once for 0.85s after each valid selected preset is loaded, stays ON after note release, stops on OFF, does not continuously repeat. Loading project/reset disarms for safety. Tests cover two expansion presets, completion, rapid changes, OFF and silence. Mac test uses the same audition DSP, retains its existing desktop browser. Push CI still publishes one MPC ZIP only.
+
+## Five-tab MPC navigation
+MAIN is the sole library browser; remove the duplicate LIBRARIES tab and its Q-Link bank. The libraries.png asset remains the shared browser background so installed covers still refresh correctly. FILTER, DELAY, REVERB and AMP MODIFIER stay unchanged. Mac tester also has five bottom tabs, retaining its existing desktop browser on MAIN. No DSP, parameter, preview or preset changes. One MPC ZIP on push.

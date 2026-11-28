@@ -17,7 +17,7 @@ assert [p["name"] for p in layout["pages"]]==["MAIN","FILTER","DELAY","REVERB","
 assert set(layout["pages"][0]["ids"])=={0,7}
 assert set(layout["pages"][1]["ids"])=={5,8,9,10,11,12,13,14,18,19,20,21,22}
 assert all(len(p["ids"])<=16 for p in layout["pages"])
-verify([("tab"+str(j),16+j*208,724,200,36) for j in range(6)],1280,768)
+verify([("tab"+str(j),16+j*250,724,242,36) for j in range(5)],1280,768)
 # macOS browser uses actual native search field and row hitboxes.
 verify([("collection",310,151,708,36),("style",32,202,262,30),("search",310,202,708,30),
         *[("category"+str(i),32,242+i*22,262,22) for i in range(13)],
