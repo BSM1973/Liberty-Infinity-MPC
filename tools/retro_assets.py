@@ -91,12 +91,31 @@ q.rounded_rectangle((1,1,70,39),radius=4,fill=(25,25,28),outline=G,width=1)
 q.line((5,4,66,4),fill=(90,75,48));q.polygon([(60,14),(66,14),(63,19)],fill=LIGHT)
 sel.resize((60,32),Image.Resampling.LANCZOS).save(A/"selector_60.png")
 sel.resize((156,62),Image.Resampling.LANCZOS).save(A/"selector_156.png")
+# MAIN-only native browser background and page-index filmstrip.
+V=json.loads((P/"main-browser.json").read_text(encoding="utf8"))
+def browser_button(file,w,h,on):
+    im=Image.new("RGBA",(w,h));d=ImageDraw.Draw(im)
+    d.rounded_rectangle((0,0,w-1,h-1),radius=5,fill=(67,53,31) if on else (27,30,35),outline=G if on else (65,61,50),width=1)
+    im.save(A/file)
+for stem,w,h in (("browser-category",246,29),("browser-row",666,46)):
+    for on in (True,False):browser_button(stem+("-on.png" if on else "-off.png"),w,h,on)
+scroll=Image.new("RGBA",(38,403*len(V)))
+for i in range(len(V)):
+    img=Image.new("RGBA",(38,403));sd=ImageDraw.Draw(img)
+    sd.rounded_rectangle((10,1,27,401),radius=8,fill=(28,29,32),outline=(79,66,42))
+    y=3+round(i*350/max(1,len(V)-1))
+    sd.rounded_rectangle((5,y,32,y+48),radius=6,fill=(161,127,64),outline=LIGHT,width=2)
+    for n in range(3):sd.line((12,y+20+n*4,25,y+20+n*4),fill=LIGHT,width=1)
+    scroll.paste(img,(0,i*403))
+scroll.save(A/"browser-scroll.png")
+
 # Exact per-page geometry and independently rendered design previews.
 for page in L["pages"][:-1]:
     controls=page["controls"];im=panel_background(page["name"]);d=ImageDraw.Draw(im)
     if page["asset"]=="main":
         for rect in ((16,121,1036,610),(1046,121,1260,610)):
             d.rounded_rectangle(rect,radius=9,fill=(11,13,17),outline=(104,81,45),width=2)
+        d.text((32,132),"FACTORY 1",font=font(21),fill=LIGHT)
         d.text((1153,130),"OUTPUT",font=font(16),fill=G,anchor="mt")
         im.paste(factory.resize((166,166),Image.Resampling.LANCZOS),(1070,168))
     else:
@@ -126,9 +145,16 @@ for page in L["pages"][:-1]:
         else:
             draw.text((x+w/2,y+f["valueY"]),("ON" if c["i"] in (8,15) else "OFF") if c["kind"]=="toggle" else "50 %",font=font(f["valueSize"]),fill=LIGHT,anchor="mt")
     if page["asset"]=="main":
-        draw.text((526,159),"FACTORY 1 / LIBRARIES",font=font(25),fill=G,anchor="mt")
-        draw.text((526,270),"BA Deep Bass",font=font(46),fill=WHITE,anchor="mt")
-        draw.text((526,425),"100 FACTORY PRESETS",font=font(22),fill=LIGHT,anchor="mt")
+        draw.text((304,132),V[0]["label"],font=font(21),fill=G)
+        for cat in range(13):
+            title=next(v["label"].rsplit("  ",1)[0] for v in V if v["category"]==cat)
+            y=164+cat*31;preview.alpha_composite(Image.open(A/("browser-category-on.png" if cat==0 else "browser-category-off.png")),(32,y))
+            draw.text((155,y+14),title,font=font(17),fill=WHITE,anchor="mm")
+        for row,preset in enumerate(V[0]["rows"]):
+            y=170+row*51;preview.alpha_composite(Image.open(A/"browser-row-off.png"),(304,y))
+            draw.text((346,y+23),f'{preset["index"]+1:03d}',font=font(19),fill=G,anchor="mm")
+            draw.text((394,y+23),preset["name"],font=font(23),fill=WHITE,anchor="lm")
+        preview.alpha_composite(scroll.crop((0,0,38,403)),(980,170))
     preview.convert("RGB").save(A/(page["asset"]+"-preview.png"))
     for a,b in itertools.combinations(controls,2):
         assert a["x"]+a["w"]<=b["x"] or b["x"]+b["w"]<=a["x"] or a["y"]+a["h"]<=b["y"] or b["y"]+b["h"]<=a["y"],(page["name"],a["i"],b["i"])

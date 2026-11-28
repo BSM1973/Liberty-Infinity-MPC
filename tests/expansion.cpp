@@ -27,6 +27,22 @@ int main(){
     auto state=s.internalSaveState();if(!s.internalLoadState(state.data(),state.size())||s.getInt(Sound)!=100)return 5;
     std::vector<uint8_t> bad(36,'x');s.loadExtraState(bad.data(),bad.size());s.process(ctx);for(float x:l)if(x!=0)return 6;
     s.setProgram(0);if(s.getInt(Sound)!=0)return 7;
+    // All 100 Factory names reachable in the unfiltered views and in their category.
+    int all[100]={},filtered[100]={};
+    for(int view=0;view<mainBrowserPageCount;++view)for(int row=1;row<=8;++row){
+        int p=mainBrowserPatch(view,row);if(p<0)continue;if(p>=100)return 20;
+        int cat=mainBrowserPages[view].category;
+        if(cat){if(factory[p].kind+1!=cat)return 21;++filtered[p];}else ++all[p];
+        s.set(P_mainView,float(view));s.set(P_mainPick,float(row));s.process(ctx);
+        if(s.getInt(Sound)!=p||s.getInt(P_mainPick)!=0)return 22;
+    }
+    for(int p=0;p<100;++p)if(all[p]!=1||filtered[p]!=1)return 23;
+    s.setProgram(0);s.set(P_mainView,1);s.process(ctx);if(s.getInt(Sound)!=0)return 24;
+    s.set(P_mainPick,1);s.process(ctx);if(s.getInt(Sound)!=8)return 25;
+    auto mainState=s.internalSaveState();s.set(P_mainView,0);s.setProgram(0);
+    if(!s.internalLoadState(mainState.data(),mainState.size()))return 26;
+    s.process(ctx);if(s.getInt(Sound)!=8)return 27;
+    std::cout<<"PASS inline browser: all Factory/category rows, page-only navigation, row selection and state\n";
     fs::remove(dir/"License.txt");{Infinity no;if(no.expansionPreset(100))return 8;no.prepare(48000,128);no.setProgram(100);no.process(ctx);for(float x:l)if(x!=0)return 9;}
     std::cout<<"PASS independent PCM, collection/category browser, preview, stable state and missing entitlement rejection\n";
 }

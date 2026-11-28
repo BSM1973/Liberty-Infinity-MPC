@@ -43,8 +43,9 @@ struct Voice {
     bool held=false;
     uint64_t age=0;
 };
-enum Param { Sound, Attack, Decay, Sustain, Release, Cutoff, Pan, Volume, P_filteron, P_fenv, P_reso, P_fatk, P_fdec, P_fsus, P_frel, P_ampon, P_spike, P_spread, P_masteron, P_mastertype, P_masterslope, P_mastercut, P_masterres, P_delayon, P_delaytype, P_delaymix, P_delaytime, P_feedback, P_delaymod, P_delaylo, P_delayhi, P_revon, P_revtype, P_revmix, P_revpre, P_revdec, P_revmod, P_revlo, P_revhi, P_library, P_category, P_browse, P_preview };
+enum Param { Sound, Attack, Decay, Sustain, Release, Cutoff, Pan, Volume, P_filteron, P_fenv, P_reso, P_fatk, P_fdec, P_fsus, P_frel, P_ampon, P_spike, P_spread, P_masteron, P_mastertype, P_masterslope, P_mastercut, P_masterres, P_delayon, P_delaytype, P_delaymix, P_delaytime, P_feedback, P_delaymod, P_delaylo, P_delayhi, P_revon, P_revtype, P_revmix, P_revpre, P_revdec, P_revmod, P_revlo, P_revhi, P_library, P_category, P_browse, P_preview, P_mainView, P_mainPick };
 constexpr int soundParameterCount=P_revhi+1;
+#include "MainBrowser.h"
 }
 
 class Infinity final: public mpc::Plugin {
@@ -95,6 +96,9 @@ public:
         auto category=mpc::choiceParam("librarycategory","Categorie",{"Toutes","Bass","Keys","Pads","Plucks","Leads","Pianos","Strings","Brass","Arpeggios","Bells & Mallets","Atmospheres","Synth & FX"},0);category.automatable=false;addParam(category);
         auto browse=mpc::intParam("librarypreset","Preset",1,100,1);browse.automatable=false;addParam(browse);
         auto preview=mpc::boolParam("librarypreview","Ecouter",false);preview.automatable=false;addParam(preview);
+        std::vector<std::string> mainPages;for(const auto& page:mainBrowserPages)mainPages.emplace_back(page.label);
+        auto view=mpc::choiceParam("mainview","Browser Page",mainPages,0);view.automatable=false;addParam(view);
+        auto pick=mpc::choiceParam("mainpick","Browser Row",{"—","1","2","3","4","5","6","7","8"},0);pick.automatable=false;addParam(pick);
         for(int p=0;p<patches;++p){
             const auto& q=factory[p];const int k=q.kind,v=q.variant;
             const float a=k==2||k==10?220.f+v*20:k==6?85.f:5.f;
@@ -146,7 +150,7 @@ public:
         int p=getInt(Sound);auto* ex=bank.expansionFor(p);
         savedExpansionID.fill(0);if(data&&n==36)std::copy_n(data,36,savedExpansionID.begin());
         blockedPatch.store(p>=factoryCount&&(!ex||!data||n!=36||std::memcmp(data,ex->id.data(),36)!=0)?p:-1);
-        syncBrowser.store(true,std::memory_order_release);
+        set(P_mainPick,0);syncBrowser.store(true,std::memory_order_release);
     }
     void parameterChanged(int index,float value)override{if(index==Sound&&int(value)!=blockedPatch.load())blockedPatch.store(-1);}
     int activeVoiceCount() const {return activeVoices.load(std::memory_order_relaxed);}
@@ -155,7 +159,7 @@ public:
     bool usingPackedBank() const {return bank.good();}
     int loadedZones() const {return bank.good()?patches*zones*hd::velocities:0;}
     void prepare(double sampleRate,int) override { sr=std::clamp(sampleRate,8000.0,192000.0); for(auto& b:lines)b.assign(size_t(sr*2)+4,0); reset(); }
-    void reset() override { navLibrary=getInt(P_library);navCategory=getInt(P_category);navRow=getInt(P_browse);previewFrames=0;previewPending=false;set(P_preview,0);pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; roundRobin={}; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
+    void reset() override { set(P_mainPick,0);navLibrary=getInt(P_library);navCategory=getInt(P_category);navRow=getInt(P_browse);previewFrames=0;previewPending=false;set(P_preview,0);pending={};requested=-1;switchGain=1.f;activeVoices.store(0,std::memory_order_relaxed); voices={}; pedal=false; bend=0; bendRatio=1; counter=0; roundRobin={}; gain=0; ix=0; phase=0; master={}; low={}; high={}; for(auto& b:lines)std::fill(b.begin(),b.end(),0.f); }
     uint32_t streamUnderruns()const{return bank.streamUnderruns();}
     uint32_t streamQueueDrops()const{return bank.streamQueueDrops();}
     uint32_t streamIOErrors()const{return bank.streamIOErrors();}
@@ -164,6 +168,16 @@ public:
     void process(mpc::ProcessContext& ctx) override {
         bank.beginBlock();
         // Browser controls are observed only on change; state restore/reset never selects a different Sound.
+        const int pick=getInt(P_mainPick);
+        if(pick){
+            const int view=getInt(P_mainView),p=mainBrowserPatch(view,pick);set(P_mainPick,0);
+            if(p>=0&&bank.available(p)){
+                const int cat=mainBrowserPages[view].category;int index=1;
+                for(int i=0;i<p;++i)if(!cat||factory[i].kind+1==cat)++index;
+                set(P_library,0);set(P_category,float(cat));set(P_browse,float(index));
+                navLibrary=0;navCategory=cat;navRow=index;set(P_preview,0);set(Sound,float(p));
+            }
+        }
         const int lib=getInt(P_library),category=getInt(P_category);
         int row=getInt(P_browse);
         if(syncBrowser.exchange(false,std::memory_order_acq_rel)){navLibrary=lib;navCategory=category;navRow=row;set(P_preview,0);}

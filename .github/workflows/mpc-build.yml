@@ -3,6 +3,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      diagnostics:
+        description: "Upload optional test reports, Mac test and expansion assets"
+        type: boolean
+        default: true
 permissions:
   contents: read
 jobs:
@@ -39,6 +44,7 @@ jobs:
       - run: set -o pipefail; /tmp/infinity-stream-qc | tee streaming-60s.csv
       - run: python tools/build_demo_expansion.py
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-MPC-DEMO-Expansion
           path: expansion-demo/
@@ -54,16 +60,19 @@ jobs:
       - run: python tools/test_mpc_expansion_manager.py
       - run: python tools/package_cinematic_master.py
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-Cinematic-Horizons-Master-Edition-QA
           path: cinematic-horizons-master-QA.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-v0.9.12-Cinematic-Horizons-100-Listening-WAV
           path: cinematic-listening/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-Cinematic-Horizons-100-Preset-CANDIDATE
           path: cinematic-horizons/
@@ -88,6 +97,7 @@ jobs:
           MPC_PLUGIN_FOLDER="$PWD/plugins/Infinity" /tmp/infinity-perf-base | tee performance-v06.csv
       - run: python tools/level_match.py --src factory-listening --out factory-level-match
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-v0.9.12-Optional-Factory-Level-Match
           path: factory-level-match/
@@ -96,17 +106,20 @@ jobs:
       - run: c++ -std=c++17 -O2 -pthread -I sdk/framework tests/acoustic_preview.cpp -o /tmp/infinity-acoustic -ldl
       - run: set -o pipefail; /tmp/infinity-acoustic acoustic-preview/Factory.pcm | tee acoustic-validation.txt
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-v0.9.12-CC0-Acoustic-Evaluation
           path: acoustic-preview/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-v0.9.12-100-Factory-Listening-WAV
           path: factory-listening/
           if-no-files-found: error
       - run: python tools/make_retro_skin.py
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-MPC-Library-Manager-Preview
           path: plugins/Infinity/assets/libraries.png
@@ -120,6 +133,7 @@ jobs:
           path: plugins/Infinity/dist/*.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-v0.9.12-Factory-and-Performance-Validation
           path: |
@@ -145,6 +159,7 @@ jobs:
             performance-v0912.csv
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-Black-Gold-Browser-Pro-Preview
           path: |
@@ -175,6 +190,7 @@ jobs:
       - run: clang++ -std=c++17 -O2 -pthread -I sdk/framework tests/streaming_qc.cpp -o /tmp/infinity-stream-qc-mac
       - run: set -o pipefail; /tmp/infinity-stream-qc-mac | tee streaming-60s-mac.csv
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-v0.9.12-macOS-Streaming-QC
           path: streaming-60s-mac.csv
@@ -187,6 +203,7 @@ jobs:
           pkgbuild --component "dist/Liberty Infinity MPC Test.app" --install-location /Applications --identifier com.libertymusicsoftware.infinitympctest --version 0.9.12 dist/Liberty-Infinity-0.9.12-arm64-UNSIGNED.pkg
           pkgutil --payload-files dist/Liberty-Infinity-0.9.12-arm64-UNSIGNED.pkg > dist/pkg-payload.txt
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-v0.9.12-macOS-Unsigned-Test-PKG
           path: |
@@ -194,6 +211,7 @@ jobs:
             dist/pkg-payload.txt
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnostics }}
         with:
           name: Liberty-Infinity-Mac-Test-v0.9.12-arm64
           path: dist/*.zip
